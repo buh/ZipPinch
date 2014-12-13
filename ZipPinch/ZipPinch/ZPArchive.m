@@ -115,7 +115,7 @@ struct zip_file_header {
             0x50, 0x4b, 0x05, 0x06
         };
         
-        NSLog(@"[ZipPinch] Find Central Directory: ended. Received: %lu", len);
+        NSLog(@"[ZipPinch] Find Central Directory: ended. Received: %lu", (unsigned long)len);
         
         do {
             char *fptr = memchr(cptr, 0x50, len);
@@ -174,7 +174,7 @@ idx += sizeof(end_record._field)
     [self startRequestWithURL:URL rangeFrom:offset rangeLength:(offset + length - 1) completionBlock:^(const char *cptr, NSUInteger len) {
         NSMutableArray *entries = [NSMutableArray array];
         
-        NSLog(@"[ZipPinch] Parse Central Directory: ended. Received: %lu", len);
+        NSLog(@"[ZipPinch] Parse Central Directory: ended. Received: %lu", (unsigned long)len);
         
         // 46 ?!? That's the record length up to the filename see
         // http://en.wikipedia.org/wiki/ZIP_(file_format)#File_headers
@@ -243,7 +243,7 @@ idx += sizeof(dir_record._field)
                   rangeLength:(entry.offset + length + 16)
               completionBlock:^(const char *cptr, NSUInteger len) {
         
-        NSLog(@"[ZipPinch] Fetch File: ended. Received: %lu", len);
+        NSLog(@"[ZipPinch] Fetch File: ended. Received: %lu", (unsigned long)len);
         
         struct zip_file_header file_record;
         int idx = 0;
@@ -293,7 +293,7 @@ idx += sizeof(file_record._field)
             
             entry.data = [NSData dataWithBytes:ptr length:entry.sizeUncompressed];
             
-            NSLog(@"[ZipPinch] Uncompressed bytes: %li", (NSInteger)zstream.avail_in);
+            NSLog(@"[ZipPinch] Uncompressed bytes: %li", (long)zstream.avail_in);
             
             free(ptr);
             
@@ -321,7 +321,7 @@ idx += sizeof(file_record._field)
             entry.data = [NSData dataWithBytes:ptr length:entry.sizeUncompressed];
             
         } else {
-            NSLog(@"[ZipPinch] Unimplemented uncompress method: %li", entry.method);
+            NSLog(@"[ZipPinch] Unimplemented uncompress method: %li", (long)entry.method);
         }
         
         completionBlock(entry);
@@ -335,7 +335,7 @@ idx += sizeof(file_record._field)
                 rangeLength:(NSUInteger)rangeTo
             completionBlock:(void(^)(const char *cptr, NSUInteger len))completionBlock
 {
-    NSString *rangeValue = [NSString stringWithFormat:@"bytes=%lu-%lu", rangeFrom, rangeTo];
+    NSString *rangeValue = [NSString stringWithFormat:@"bytes=%lu-%lu", (unsigned long)rangeFrom, (unsigned long)rangeTo];
     
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:URL];
     [request setValue:rangeValue forHTTPHeaderField:@"Range"];
