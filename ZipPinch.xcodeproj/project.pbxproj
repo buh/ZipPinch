@@ -113,12 +113,12 @@
 				4ADB75BA1A39F7200061A2B7 /* ZPArchive.m */,
 				4ADB75BB1A39F7200061A2B7 /* ZPEntry.h */,
 				4ADB75BC1A39F7200061A2B7 /* ZPEntry.m */,
-				4ADB75BD1A39F7200061A2B7 /* ZPEntry+NSData.h */,
-				4ADB75BE1A39F7200061A2B7 /* ZPEntry+NSData.m */,
 				4ADB75BF1A39F7200061A2B7 /* ZPManager.h */,
 				4ADB75C01A39F7200061A2B7 /* ZPManager.m */,
 				4ADB75C11A39F7200061A2B7 /* ZPURLResponseConnectionOperation.h */,
 				4ADB75C21A39F7200061A2B7 /* ZPURLResponseConnectionOperation.m */,
+				4ADB75BD1A39F7200061A2B7 /* ZPEntry+NSData.h */,
+				4ADB75BE1A39F7200061A2B7 /* ZPEntry+NSData.m */,
 			);
 			name = ZipPinch;
 			sourceTree = "<group>";

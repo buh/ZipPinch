@@ -11,8 +11,8 @@
 
 @interface ZPEntry (NSData)
 
-- (NSString *)string;
-- (UIImage *)image;
-- (id)JSON;
+- (NSString *)zp_string;
+- (UIImage *)zp_image;
+- (id)zp_JSON;
 
 @end

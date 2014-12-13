@@ -160,6 +160,7 @@ static NSString *const ViewControllerImageSegue = @"imageSegue";
 - (BOOL)isImageWithFileName:(NSString *)fileName
 {
     NSString *extension = [[fileName pathExtension] lowercaseString];
+    
     return [extension isEqual:@"jpg"] || [extension isEqual:@"png"] || [extension isEqual:@"gif"] || [extension isEqual:@"jpeg"];
 }
 
