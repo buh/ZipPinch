@@ -1,11 +1,11 @@
 ZipPinch
 ========
 
-Recovered pinch-objc https://github.com/epatel/pinch-objc
+Recovered [pinch-objc](https://github.com/epatel/pinch-objc).
 
 ZipPinch — work with zip file remotely. It read zip file contents without downloading itself and unzip files that you needed.
 
-NOTE: ZipPinch works with AFNetworking 1.3. 
+NOTE: ZipPinch works with AFNetworking 1.3+. 
 
 Install
 -------
