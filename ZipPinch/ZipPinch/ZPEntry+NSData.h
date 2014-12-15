@@ -6,7 +6,6 @@
 //  Copyright (c) 2014 ZipPinch. All rights reserved.
 //
 
-@import UIKit;
 #import "ZPEntry.h"
 
 @interface ZPEntry (NSData)

@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4A6F53951A3EE33600EB3FB8 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A6F53941A3EE33600EB3FB8 /* UIKit.framework */; };
+		4A6F53971A3EE33B00EB3FB8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A6F53961A3EE33B00EB3FB8 /* Foundation.framework */; };
 		4A8F432B1A161DB800F7E579 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4A8F432A1A161DB800F7E579 /* main.m */; };
 		4A8F432E1A161DB800F7E579 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 4A8F432D1A161DB800F7E579 /* AppDelegate.m */; };
 		4A8F43311A161DB800F7E579 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4A8F43301A161DB800F7E579 /* ViewController.m */; };
@@ -25,6 +27,8 @@
 /* Begin PBXFileReference section */
 		3165CFC946C90B6C63034F37 /* Pods.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Pods.debug.xcconfig; path = "Pods/Target Support Files/Pods/Pods.debug.xcconfig"; sourceTree = "<group>"; };
 		40E7CE586A381D7D6432556A /* Pods.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Pods.release.xcconfig; path = "Pods/Target Support Files/Pods/Pods.release.xcconfig"; sourceTree = "<group>"; };
+		4A6F53941A3EE33600EB3FB8 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		4A6F53961A3EE33B00EB3FB8 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		4A8F43251A161DB800F7E579 /* ZipPinch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZipPinch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4A8F43291A161DB800F7E579 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		4A8F432A1A161DB800F7E579 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
@@ -54,6 +58,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4A6F53971A3EE33B00EB3FB8 /* Foundation.framework in Frameworks */,
+				4A6F53951A3EE33600EB3FB8 /* UIKit.framework in Frameworks */,
 				4A8F435C1A162AC500F7E579 /* libz.1.2.5.dylib in Frameworks */,
 				AA621558E1ACB6276F58A77E /* libPods.a in Frameworks */,
 			);
@@ -135,6 +141,8 @@
 		F911CC3A566BA2FD650C70EE /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				4A6F53961A3EE33B00EB3FB8 /* Foundation.framework */,
+				4A6F53941A3EE33600EB3FB8 /* UIKit.framework */,
 				4A8F435B1A162AC500F7E579 /* libz.1.2.5.dylib */,
 				9283C37BD24C83FB0EB2FA2C /* libPods.a */,
 			);

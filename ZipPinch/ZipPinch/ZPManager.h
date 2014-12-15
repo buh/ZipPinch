@@ -6,7 +6,6 @@
 //  Copyright (c) 2014 ZipPinch. All rights reserved.
 //
 
-@import UIKit;
 #import "ZPArchive.h"
 
 typedef void(^ZPManagerDataCompletionBlock)(NSData *data);
@@ -26,7 +25,8 @@ typedef void(^ZPManagerDataCompletionBlock)(NSData *data);
 - (void)loadDataWithFilePath:(NSString *)filePath completionBlock:(ZPManagerDataCompletionBlock)completionBlock;
 - (void)loadDataWithURL:(NSURL *)URL completionBlock:(ZPManagerDataCompletionBlock)completionBlock;
 
-- (void)clearAllCaches;
+- (void)clearCache;
 - (void)clearMemoryCache;
++ (void)clearCacheAtDefaultPath;
 
 @end

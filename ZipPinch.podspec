@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "ZipPinch"
-  s.version          = "0.1.1"
+  s.version          = "0.1.2"
   s.summary          = "Work with zip file remotely."
   s.description      = <<-DESC
                         Work with zip file remotely. It read zip file contents without downloading itself and unzip files that you needed.

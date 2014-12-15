@@ -6,6 +6,7 @@
 //  Copyright (c) 2014 ZipPinch. All rights reserved.
 //
 
+#import <UIKit/UIKit.h>
 #import "ZPEntry+NSData.h"
 
 @implementation ZPEntry (NSData)

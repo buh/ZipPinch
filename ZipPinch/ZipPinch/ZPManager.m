@@ -6,6 +6,7 @@
 //  Copyright (c) 2014 ZipPinch. All rights reserved.
 //
 
+#import <UIKit/UIKit.h>
 #import "ZPManager.h"
 
 static NSString *const ZPManagerFileCachePath = @"ZipPinch";
@@ -208,12 +209,21 @@ static NSString *const ZPManagerCacheEntriesKey = @"entries";
     }];
 }
 
-- (void)clearAllCaches
+- (void)clearCache
 {
     [self clearMemoryCache];
     
     if (_cacheEnabled && [[NSFileManager defaultManager] fileExistsAtPath:_baseCachePath]) {
         [[NSFileManager defaultManager] removeItemAtPath:_baseCachePath error:nil];
+    }
+}
+
++ (void)clearCacheAtDefaultPath
+{
+    NSString *defaultCachePath = [self libraryCachesPath];
+    
+    if ([[NSFileManager defaultManager] fileExistsAtPath:defaultCachePath]) {
+        [[NSFileManager defaultManager] removeItemAtPath:defaultCachePath error:nil];
     }
 }
 

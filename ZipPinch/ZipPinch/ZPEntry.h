@@ -6,7 +6,7 @@
 //  Copyright (c) 2014 ZipPinch. All rights reserved.
 //
 
-@import Foundation;
+#import <Foundation/Foundation.h>
 @class ZPArchive;
 
 @interface ZPEntry : NSObject <NSCoding>
