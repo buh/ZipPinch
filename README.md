@@ -7,10 +7,10 @@ ZipPinch — work with zip file remotely. It read zip file contents without down
 
 NOTE: ZipPinch works with AFNetworking 1.3+. 
 
-Install
+Installation
 -------
-1. Copy files from `ZipPinch/ZipPinch/*.{h,m}` to your project
-2. Pods: `pod ZipPinch`
+1. Pods: `pod ZipPinch`.
+2. Copy files from `ZipPinch/ZipPinch/*.{h,m}` to your project.
 
 Usage
 -----
