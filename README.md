@@ -73,7 +73,7 @@ NSURL *imageURL = [URL URLByAppendingPathComponent:@"top100/heic1307.jpg"];
     UIImage *image = [UIImage imageWithData:data];
 }];
 ```
-#### 3. Try Demo.
+#### 3. Try Demo: `pod try ZipPinch`
 
 TODO
 -----
