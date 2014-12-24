@@ -8,7 +8,7 @@
 
 #import "ZPArchive.h"
 
-typedef void(^ZPManagerDataCompletionBlock)(NSData *data);
+typedef void(^ZPManagerDataCompletionBlock)(NSData *data, NSError *error);
 
 @interface ZPManager : NSObject
 

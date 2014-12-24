@@ -78,7 +78,9 @@ static NSString *const ZPManagerCacheEntriesKey = @"entries";
             _entries = [cache[ZPManagerCacheEntriesKey] copy];
             
             if (_entries) {
-                completionBlock(_fileLength, _entries);
+                if (completionBlock) {
+                    completionBlock(_fileLength, _entries, nil);
+                }
                 
                 return;
             }
@@ -87,8 +89,18 @@ static NSString *const ZPManagerCacheEntriesKey = @"entries";
     
     // Load zip content by URL.
     __weak ZPManager *weakSelf = self;
+    _fileLength = 0;
+    _entries = nil;
     
-    [_archive fetchArchiveWithURL:_URL completionBlock:^(long long fileLength, NSArray *entries) {
+    [_archive fetchArchiveWithURL:_URL completionBlock:^(long long fileLength, NSArray *entries, NSError *error) {
+        if (error) {
+            if (completionBlock) {
+                completionBlock(0, nil, error);
+            }
+            
+            return;
+        }
+        
         weakSelf.fileLength = fileLength;
         weakSelf.entries = [entries copy];
         
@@ -112,7 +124,7 @@ static NSString *const ZPManagerCacheEntriesKey = @"entries";
         }
         
         if (completionBlock) {
-            completionBlock(fileLength, weakSelf.entries);
+            completionBlock(fileLength, weakSelf.entries, nil);
         }
     }];
 }
@@ -130,7 +142,9 @@ static NSString *const ZPManagerCacheEntriesKey = @"entries";
 - (void)loadDataWithEntry:(ZPEntry *)entry completionBlock:(ZPManagerDataCompletionBlock)completionBlock
 {
     if (entry.data) {
-        completionBlock(entry.data);
+        if (completionBlock) {
+            completionBlock(entry.data, nil);
+        }
         
         return;
     }
@@ -143,34 +157,34 @@ static NSString *const ZPManagerCacheEntriesKey = @"entries";
         
         if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
             NSData *data = [NSData dataWithContentsOfFile:path];
-            completionBlock(data);
+            
+            if (completionBlock) {
+                completionBlock(data, nil);
+            }
             
             return;
         }
     }
     
-    if (_archive) {
-        [_archive fetchFile:entry completionBlock:^(ZPEntry *entry) {
-            // Cache data.
-            if (_cacheEnabled) {
-                NSString *basePath = [path stringByDeletingLastPathComponent];
-                
-                if (![[NSFileManager defaultManager] fileExistsAtPath:basePath]) {
-                    [[NSFileManager defaultManager] createDirectoryAtPath:basePath
-                                              withIntermediateDirectories:YES
-                                                               attributes:@{ NSFilePosixPermissions:@0755 }
-                                                                    error:nil];
-                }
-                
-                [entry.data writeToFile:path atomically:YES];
+    [_archive fetchFile:entry completionBlock:^(ZPEntry *entry, NSError *error) {
+        // Cache data.
+        if (!error && _cacheEnabled) {
+            NSString *basePath = [path stringByDeletingLastPathComponent];
+            
+            if (![[NSFileManager defaultManager] fileExistsAtPath:basePath]) {
+                [[NSFileManager defaultManager] createDirectoryAtPath:basePath
+                                          withIntermediateDirectories:YES
+                                                           attributes:@{ NSFilePosixPermissions:@0755 }
+                                                                error:nil];
             }
             
-            completionBlock(entry.data);
-        }];
+            [entry.data writeToFile:path atomically:YES];
+        }
         
-    } else {
-        completionBlock(nil);
-    }
+        if (completionBlock) {
+            completionBlock(error ? nil : entry.data, error);
+        }
+    }];
 }
 
 - (ZPEntry *)entryWithFilePath:(NSString *)filePath

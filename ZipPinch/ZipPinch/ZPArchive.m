@@ -14,8 +14,12 @@
 #include <ctype.h>
 #include <stdio.h>
 
+NSString *const ZPEntryErrorDomain = @"zp.entry.error";
+
 typedef unsigned int uint32;
 typedef unsigned short uint16;
+
+typedef void(^ZPArchiveRequestCompletionBlock)(const char *cptr, NSUInteger len, NSError *error);
 
 // The headers, see http://en.wikipedia.org/wiki/ZIP_(file_format)#File_headers
 // Note that here they will not be as tightly packed as defined in the file format,
@@ -76,6 +80,11 @@ struct zip_file_header {
 
 - (void)fetchArchiveWithURL:(NSURL *)URL completionBlock:(ZPArchiveArchiveCompletionBlock)completionBlock
 {
+    // Don't start without callback.
+    if (!completionBlock) {
+        return;
+    }
+    
     _fileLength = 0;
     
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:URL];
@@ -95,7 +104,7 @@ struct zip_file_header {
             
         } else {
             NSLog(@"[ZipPinch] Fetch URL: failed. %@", URL);
-            completionBlock(0, nil);
+            completionBlock(0, nil, weakOperation.error);
         }
     }];
     
@@ -108,60 +117,69 @@ struct zip_file_header {
                      withFileLength:(NSUInteger)length
                     completionBlock:(ZPArchiveArchiveCompletionBlock)completionBlock
 {
-    [self startRequestWithURL:URL rangeFrom:(length - 4096) rangeLength:(length - 1) completionBlock:^(const char *cptr, NSUInteger len) {
-        char *found = NULL;
-        
-        char endOfCentralDirectorySignature[4] = {
-            0x50, 0x4b, 0x05, 0x06
-        };
-        
-        NSLog(@"[ZipPinch] Find Central Directory: ended. Received: %lu", (unsigned long)len);
-        
-        do {
-            char *fptr = memchr(cptr, 0x50, len);
-            
-            // Done searching.
-            if (!fptr) {
-                break;
-            }
-            
-            // Use the last found directory.
-            if (!memcmp(endOfCentralDirectorySignature, fptr, 4)) {
-                found = fptr;
-            }
-            
-            len = len - (fptr - cptr) - 1;
-            cptr = fptr + 1;
-        } while (1);
-        
-        if (!found) {
-            NSLog(@"[ZipPinch] No end-header found!");
-        } else {
-            NSLog(@"[ZipPinch] Found end-header!");
-            
-            struct zip_end_record end_record;
-            int idx = 0;
-            
-            // Extract fields with a macro, if we would need to swap byteorder this would be the place
+    [self startRequestWithURL:URL
+                    rangeFrom:(length - 4096)
+                  rangeLength:(length - 1)
+              completionBlock:^(const char *cptr, NSUInteger len, NSError *error) {
+                  if (error) {
+                      completionBlock(0, nil, error);
+                      
+                      return;
+                  }
+                  
+                  char *found = NULL;
+                  
+                  char endOfCentralDirectorySignature[4] = {
+                      0x50, 0x4b, 0x05, 0x06
+                  };
+                  
+                  NSLog(@"[ZipPinch] Find Central Directory: ended. Received: %lu", (unsigned long)len);
+                  
+                  do {
+                      char *fptr = memchr(cptr, 0x50, len);
+                      
+                      // Done searching.
+                      if (!fptr) {
+                          break;
+                      }
+                      
+                      // Use the last found directory.
+                      if (!memcmp(endOfCentralDirectorySignature, fptr, 4)) {
+                          found = fptr;
+                      }
+                      
+                      len = len - (fptr - cptr) - 1;
+                      cptr = fptr + 1;
+                  } while (1);
+                  
+                  if (!found) {
+                      NSLog(@"[ZipPinch] No end-header found!");
+                  } else {
+                      NSLog(@"[ZipPinch] Found end-header!");
+                      
+                      struct zip_end_record end_record;
+                      int idx = 0;
+                      
+                      // Extract fields with a macro, if we would need to swap byteorder this would be the place
 #define GETFIELD( _field ) \
 memcpy(&end_record._field, &found[idx], sizeof(end_record._field)); \
 idx += sizeof(end_record._field)
-            GETFIELD( endOfCentralDirectorySignature );
-            GETFIELD( numberOfThisDisk );
-            GETFIELD( diskWhereCentralDirectoryStarts );
-            GETFIELD( numberOfCentralDirectoryRecordsOnThisDisk );
-            GETFIELD( totalNumberOfCentralDirectoryRecords );
-            GETFIELD( sizeOfCentralDirectory );
-            GETFIELD( offsetOfStartOfCentralDirectory );
-            GETFIELD( ZIPfileCommentLength );
+                      GETFIELD( endOfCentralDirectorySignature );
+                      GETFIELD( numberOfThisDisk );
+                      GETFIELD( diskWhereCentralDirectoryStarts );
+                      GETFIELD( numberOfCentralDirectoryRecordsOnThisDisk );
+                      GETFIELD( totalNumberOfCentralDirectoryRecords );
+                      GETFIELD( sizeOfCentralDirectory );
+                      GETFIELD( offsetOfStartOfCentralDirectory );
+                      GETFIELD( ZIPfileCommentLength );
 #undef GETFIELD
-            
-            [self parseCentralDirectoryWithURL:URL
-                                    withOffset:end_record.offsetOfStartOfCentralDirectory
-                                    withLength:end_record.sizeOfCentralDirectory
-                               completionBlock:completionBlock];
-        }
-    }];
+                      
+                      [self parseCentralDirectoryWithURL:URL
+                                              withOffset:end_record.offsetOfStartOfCentralDirectory
+                                              withLength:end_record.sizeOfCentralDirectory
+                                         completionBlock:completionBlock];
+                  }
+              }];
 }
 
 - (void)parseCentralDirectoryWithURL:(NSURL *)URL
@@ -171,67 +189,81 @@ idx += sizeof(end_record._field)
 {
     static int const zipPrefixLength = 46;
     
-    [self startRequestWithURL:URL rangeFrom:offset rangeLength:(offset + length - 1) completionBlock:^(const char *cptr, NSUInteger len) {
-        NSMutableArray *entries = [NSMutableArray array];
-        
-        NSLog(@"[ZipPinch] Parse Central Directory: ended. Received: %lu", (unsigned long)len);
-        
-        // 46 ?!? That's the record length up to the filename see
-        // http://en.wikipedia.org/wiki/ZIP_(file_format)#File_headers
-        
-        while (len > zipPrefixLength) {
-            struct zip_dir_record dir_record;
-            int idx = 0;
-            
-            // Extract fields with a macro, if we would need to swap byteorder this would be the place
+    [self startRequestWithURL:URL
+                    rangeFrom:offset
+                  rangeLength:(offset + length - 1)
+              completionBlock:^(const char *cptr, NSUInteger len, NSError *error) {
+                  // Check response error.
+                  if (error) {
+                      completionBlock(0, nil, error);
+                      
+                      return;
+                  }
+                  
+                  NSMutableArray *entries = [NSMutableArray array];
+                  
+                  NSLog(@"[ZipPinch] Parse Central Directory: ended. Received: %lu", (unsigned long)len);
+                  
+                  // 46 ?!? That's the record length up to the filename see
+                  // http://en.wikipedia.org/wiki/ZIP_(file_format)#File_headers
+                  
+                  while (len > zipPrefixLength) {
+                      struct zip_dir_record dir_record;
+                      int idx = 0;
+                      
+                      // Extract fields with a macro, if we would need to swap byteorder this would be the place
 #define GETFIELD( _field ) \
 memcpy(&dir_record._field, &cptr[idx], sizeof(dir_record._field)); \
 idx += sizeof(dir_record._field)
-            GETFIELD( centralDirectoryFileHeaderSignature );
-            GETFIELD( versionMadeBy );
-            GETFIELD( versionNeededToExtract );
-            GETFIELD( generalPurposeBitFlag );
-            GETFIELD( compressionMethod );
-            GETFIELD( fileLastModificationTime );
-            GETFIELD( fileLastModificationDate );
-            GETFIELD( CRC32 );
-            GETFIELD( compressedSize );
-            GETFIELD( uncompressedSize );
-            GETFIELD( fileNameLength );
-            GETFIELD( extraFieldLength );
-            GETFIELD( fileCommentLength );
-            GETFIELD( diskNumberWhereFileStarts );
-            GETFIELD( internalFileAttributes );
-            GETFIELD( externalFileAttributes );
-            GETFIELD( relativeOffsetOfLocalFileHeader );
+                      GETFIELD( centralDirectoryFileHeaderSignature );
+                      GETFIELD( versionMadeBy );
+                      GETFIELD( versionNeededToExtract );
+                      GETFIELD( generalPurposeBitFlag );
+                      GETFIELD( compressionMethod );
+                      GETFIELD( fileLastModificationTime );
+                      GETFIELD( fileLastModificationDate );
+                      GETFIELD( CRC32 );
+                      GETFIELD( compressedSize );
+                      GETFIELD( uncompressedSize );
+                      GETFIELD( fileNameLength );
+                      GETFIELD( extraFieldLength );
+                      GETFIELD( fileCommentLength );
+                      GETFIELD( diskNumberWhereFileStarts );
+                      GETFIELD( internalFileAttributes );
+                      GETFIELD( externalFileAttributes );
+                      GETFIELD( relativeOffsetOfLocalFileHeader );
 #undef GETFIELD
-            
-            NSString *filename = [[NSString alloc] initWithBytes:(cptr + zipPrefixLength)
-                                                          length:dir_record.fileNameLength
-                                                        encoding:NSUTF8StringEncoding];
-            ZPEntry *entry = [ZPEntry new];
-            entry.URL = URL;
-            entry.filePath = filename;
-            entry.method = dir_record.compressionMethod;
-            entry.sizeCompressed = dir_record.compressedSize;
-            entry.sizeUncompressed = dir_record.uncompressedSize;
-            entry.offset = dir_record.relativeOffsetOfLocalFileHeader;
-            entry.filenameLength = dir_record.fileNameLength;
-            entry.extraFieldLength = dir_record.extraFieldLength;
-            [entries addObject:entry];
-            
-            len -= zipPrefixLength + dir_record.fileNameLength + dir_record.extraFieldLength + dir_record.fileCommentLength;
-            cptr += zipPrefixLength + dir_record.fileNameLength + dir_record.extraFieldLength + dir_record.fileCommentLength;
-        }
-        
-        completionBlock(_fileLength, [entries copy]);
-    }];
+                      
+                      NSString *filename = [[NSString alloc] initWithBytes:(cptr + zipPrefixLength)
+                                                                    length:dir_record.fileNameLength
+                                                                  encoding:NSUTF8StringEncoding];
+                      ZPEntry *entry = [ZPEntry new];
+                      entry.URL = URL;
+                      entry.filePath = filename;
+                      entry.method = dir_record.compressionMethod;
+                      entry.sizeCompressed = dir_record.compressedSize;
+                      entry.sizeUncompressed = dir_record.uncompressedSize;
+                      entry.offset = dir_record.relativeOffsetOfLocalFileHeader;
+                      entry.filenameLength = dir_record.fileNameLength;
+                      entry.extraFieldLength = dir_record.extraFieldLength;
+                      [entries addObject:entry];
+                      
+                      len -= zipPrefixLength + dir_record.fileNameLength + dir_record.extraFieldLength + dir_record.fileCommentLength;
+                      cptr += zipPrefixLength + dir_record.fileNameLength + dir_record.extraFieldLength + dir_record.fileCommentLength;
+                  }
+                  
+                  completionBlock(_fileLength, [entries copy], nil);
+              }];
 }
 
 #pragma mark - Fetch File
 
 - (void)fetchFile:(ZPEntry *)entry completionBlock:(ZPArchiveFileCompletionBlock)completionBlock
 {
+    if (!completionBlock) {
+        return;
+    }
+    
     entry.data = nil;
     
     // Download '16' extra bytes as I've seen that extraFieldLength sometimes differs
@@ -241,91 +273,97 @@ idx += sizeof(dir_record._field)
     [self startRequestWithURL:entry.URL
                     rangeFrom:entry.offset
                   rangeLength:(entry.offset + length + 16)
-              completionBlock:^(const char *cptr, NSUInteger len) {
-        
-        NSLog(@"[ZipPinch] Fetch File: ended. Received: %lu", (unsigned long)len);
-        
-        struct zip_file_header file_record;
-        int idx = 0;
-        
-        // Extract fields with a macro, if we would need to swap byteorder this would be the place
+              completionBlock:^(const char *cptr, NSUInteger len, NSError *error) {
+                  
+                  NSLog(@"[ZipPinch] Fetch File: ended. Received: %lu", (unsigned long)len);
+                  
+                  if (!cptr || len == 0 || error) {
+                      completionBlock(entry, error);
+                      
+                      return;
+                  }
+                  
+                  struct zip_file_header file_record;
+                  int idx = 0;
+                  
+                  // Extract fields with a macro, if we would need to swap byteorder this would be the place
 #define GETFIELD( _field ) \
 memcpy(&file_record._field, &cptr[idx], sizeof(file_record._field)); \
 idx += sizeof(file_record._field)
-        GETFIELD( localFileHeaderSignature );
-        GETFIELD( versionNeededToExtract );
-        GETFIELD( generalPurposeBitFlag );
-        GETFIELD( compressionMethod );
-        GETFIELD( fileLastModificationTime );
-        GETFIELD( fileLastModificationDate );
-        GETFIELD( CRC32 );
-        GETFIELD( compressedSize );
-        GETFIELD( uncompressedSize );
-        GETFIELD( fileNameLength );
-        GETFIELD( extraFieldLength );
+                  GETFIELD( localFileHeaderSignature );
+                  GETFIELD( versionNeededToExtract );
+                  GETFIELD( generalPurposeBitFlag );
+                  GETFIELD( compressionMethod );
+                  GETFIELD( fileLastModificationTime );
+                  GETFIELD( fileLastModificationDate );
+                  GETFIELD( CRC32 );
+                  GETFIELD( compressedSize );
+                  GETFIELD( uncompressedSize );
+                  GETFIELD( fileNameLength );
+                  GETFIELD( extraFieldLength );
 #undef GETFIELD
-        
-        if (entry.method == Z_DEFLATED) {
-            z_stream zstream;
-            int ret;
-            
-            zstream.zalloc = Z_NULL;
-            zstream.zfree = Z_NULL;
-            zstream.opaque = Z_NULL;
-            zstream.avail_in = 0;
-            zstream.next_in = Z_NULL;
-            
-            ret = inflateInit2(&zstream, -MAX_WBITS);
-            
-            if (ret != Z_OK) {
-                return;
-            }
-            
-            zstream.avail_in = (uInt)entry.sizeCompressed;
-            zstream.next_in = (unsigned char *)&cptr[idx + file_record.fileNameLength + file_record.extraFieldLength];
-            
-            unsigned char *ptr = malloc(entry.sizeUncompressed);
-            
-            zstream.avail_out = (unsigned int)entry.sizeUncompressed;
-            zstream.next_out = ptr;
-            
-            ret = inflate(&zstream, Z_SYNC_FLUSH);
-            
-            entry.data = [NSData dataWithBytes:ptr length:entry.sizeUncompressed];
-            
-            NSLog(@"[ZipPinch] Uncompressed bytes: %li", (long)zstream.avail_in);
-            
-            free(ptr);
-            
-            switch (ret) {
-                case Z_NEED_DICT: {
-                    NSLog(@"[ZipPinch] Uncompressed Data Error");
-                    break;
-                }
-                
-                case Z_DATA_ERROR: {
-                    NSLog(@"[ZipPinch] Uncompressed Error");
-                    break;
-                }
-                
-                case Z_MEM_ERROR: {
-                    NSLog(@"[ZipPinch] Uncompressed Memory Error");
-                    break;
-                }
-            }
-            
-            inflateEnd(&zstream);
-            
-        } else if (entry.method == 0) {
-            unsigned char *ptr = (unsigned char *)&cptr[idx + file_record.fileNameLength + file_record.extraFieldLength];
-            entry.data = [NSData dataWithBytes:ptr length:entry.sizeUncompressed];
-            
-        } else {
-            NSLog(@"[ZipPinch] Unimplemented uncompress method: %li", (long)entry.method);
-        }
-        
-        completionBlock(entry);
-    }];
+                  
+                  if (entry.method == Z_DEFLATED) {
+                      z_stream zstream;
+                      int ret;
+                      
+                      zstream.zalloc = Z_NULL;
+                      zstream.zfree = Z_NULL;
+                      zstream.opaque = Z_NULL;
+                      zstream.avail_in = 0;
+                      zstream.next_in = Z_NULL;
+                      
+                      ret = inflateInit2(&zstream, -MAX_WBITS);
+                      
+                      if (ret != Z_OK) {
+                          return;
+                      }
+                      
+                      zstream.avail_in = (uInt)entry.sizeCompressed;
+                      zstream.next_in = (unsigned char *)&cptr[idx + file_record.fileNameLength + file_record.extraFieldLength];
+                      
+                      unsigned char *ptr = malloc(entry.sizeUncompressed);
+                      
+                      zstream.avail_out = (unsigned int)entry.sizeUncompressed;
+                      zstream.next_out = ptr;
+                      
+                      ret = inflate(&zstream, Z_SYNC_FLUSH);
+                      
+                      entry.data = [NSData dataWithBytes:ptr length:entry.sizeUncompressed];
+                      
+                      NSLog(@"[ZipPinch] Uncompressed bytes: %li", (long)zstream.avail_in);
+                      
+                      free(ptr);
+                      
+                      switch (ret) {
+                          case Z_NEED_DICT: {
+                              NSLog(@"[ZipPinch] Uncompressed Data Error");
+                              break;
+                          }
+                              
+                          case Z_DATA_ERROR: {
+                              NSLog(@"[ZipPinch] Uncompressed Error");
+                              break;
+                          }
+                              
+                          case Z_MEM_ERROR: {
+                              NSLog(@"[ZipPinch] Uncompressed Memory Error");
+                              break;
+                          }
+                      }
+                      
+                      inflateEnd(&zstream);
+                      
+                  } else if (entry.method == 0) {
+                      unsigned char *ptr = (unsigned char *)&cptr[idx + file_record.fileNameLength + file_record.extraFieldLength];
+                      entry.data = [NSData dataWithBytes:ptr length:entry.sizeUncompressed];
+                      
+                  } else {
+                      NSLog(@"[ZipPinch] Unimplemented uncompress method: %li", (long)entry.method);
+                  }
+                  
+                  completionBlock(entry, nil);
+              }];
 }
 
 #pragma mark -
@@ -333,7 +371,7 @@ idx += sizeof(file_record._field)
 - (void)startRequestWithURL:(NSURL *)URL
                   rangeFrom:(NSUInteger)rangeFrom
                 rangeLength:(NSUInteger)rangeTo
-            completionBlock:(void(^)(const char *cptr, NSUInteger len))completionBlock
+            completionBlock:(ZPArchiveRequestCompletionBlock)completionBlock
 {
     NSString *rangeValue = [NSString stringWithFormat:@"bytes=%lu-%lu", (unsigned long)rangeFrom, (unsigned long)rangeTo];
     
@@ -344,12 +382,16 @@ idx += sizeof(file_record._field)
     AFHTTPRequestOperation *operation = [[AFHTTPRequestOperation alloc] initWithRequest:request];
     
     [operation setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
-        NSData *data = responseObject;
-        completionBlock((const char *)[data bytes], [data length]);
+        if (responseObject) {
+            NSData *data = responseObject;
+            completionBlock((const char *)[data bytes], [data length], nil);
+        } else {
+            completionBlock(nil, 0, [NSError errorWithDomain:ZPEntryErrorDomain code:ZPEntryErrorCodeResponseEmpty userInfo:nil]);
+        }
         
     } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
         NSLog(@"[ZipPinch] %@", error);
-        completionBlock(nil, 0);
+        completionBlock(nil, 0, error);
     }];
     
     [operation start];

@@ -8,8 +8,16 @@
 
 #import "ZPEntry.h"
 
-typedef void(^ZPArchiveArchiveCompletionBlock)(long long fileLength, NSArray *entries);
-typedef void(^ZPArchiveFileCompletionBlock)(ZPEntry *entry);
+extern NSString *const ZPEntryErrorDomain;
+
+typedef NS_ENUM(NSUInteger, ZPEntryErrorCode) {
+    ZPEntryErrorCodeUnknown,
+    ZPEntryErrorCodeResponseEmpty = 100,
+    ZPEntryErrorCodeContentsEmpty = 101,
+};
+
+typedef void(^ZPArchiveArchiveCompletionBlock)(long long fileLength, NSArray *entries, NSError *error);
+typedef void(^ZPArchiveFileCompletionBlock)(ZPEntry *entry, NSError *error);
 
 @interface ZPArchive : NSObject
 

@@ -65,15 +65,6 @@ static NSString *const ViewControllerImageSegue = @"imageSegue";
     _cacheEnabled = sender.on;
 }
 
-- (void)alertWithErrorMessage:(NSString *)message
-{
-    [[[UIAlertView alloc] initWithTitle:@"Error"
-                                message:message
-                               delegate:nil
-                      cancelButtonTitle:@"OK"
-                      otherButtonTitles:nil] show];
-}
-
 - (void)textFieldDidBeginEditing:(UITextField *)textField
 {
     [self cancelZipLoading];
@@ -117,8 +108,12 @@ static NSString *const ViewControllerImageSegue = @"imageSegue";
         }];
         
         if (_imageView) {
-            [_zipManager loadDataWithFilePath:_selectedImageEntry.filePath completionBlock:^(NSData *data) {
-                _imageView.image = [[UIImage alloc] initWithData:data];
+            [_zipManager loadDataWithFilePath:_selectedImageEntry.filePath completionBlock:^(NSData *data, NSError *error) {
+                if (error) {
+                    [self alertError:error];
+                } else {
+                    _imageView.image = [[UIImage alloc] initWithData:data];
+                }
             }];
         }
         
@@ -190,7 +185,14 @@ static NSString *const ViewControllerImageSegue = @"imageSegue";
     __weak ZPManager *zipManager = _zipManager;
     __weak ViewController *weakSelf = self;
     
-    [_zipManager loadContentWithCompletionBlock:^(long long fileLength, NSArray *entries) {
+    [_zipManager loadContentWithCompletionBlock:^(long long fileLength, NSArray *entries, NSError *error) {
+        if (error) {
+            [weakSelf.activityIndicator stopAnimating];
+            [weakSelf alertError:error];
+            
+            return;
+        }
+        
         if (weakSelf.zipManager && zipManager == weakSelf.zipManager) {
             if (entries.count) {
                 [weakSelf.activityIndicator stopAnimating];
@@ -202,6 +204,22 @@ static NSString *const ViewControllerImageSegue = @"imageSegue";
             }
         }
     }];
+}
+
+#pragma mark - Alert
+
+- (void)alertError:(NSError *)error
+{
+    [self alertWithErrorMessage:[error localizedDescription]];
+}
+
+- (void)alertWithErrorMessage:(NSString *)message
+{
+    [[[UIAlertView alloc] initWithTitle:@"Error"
+                                message:message
+                               delegate:nil
+                      cancelButtonTitle:@"OK"
+                      otherButtonTitles:nil] show];
 }
 
 @end
