@@ -91,14 +91,14 @@ private extension URLSession {
         fileLength: Int64,
         delegate: URLSessionTaskDelegate?
     ) async throws -> [ZIPEntry] {
-        let data = try await rangedData(
+        let endRecordData = try await rangedData(
             from: url,
             bytesRange: (fileLength - ZIPEndRecord.size) ... (fileLength - 1),
             delegate: delegate
         )
         
-        var length = data.count
-        var currentPointer = NSData(data: data).bytes
+        var length = endRecordData.count
+        var currentPointer = NSData(data: endRecordData).bytes
         var foundPointer: UnsafeRawPointer?
         
         repeat {
@@ -130,9 +130,9 @@ private extension URLSession {
         endRecord: ZIPEndRecord,
         delegate: URLSessionTaskDelegate?
     ) async throws -> [ZIPEntry] {
-        let data = try await rangedData(from: url, bytesRange: endRecord.centerDirectoryRange, delegate: delegate)
-        var length = data.count
-        var currentPointer = NSData(data: data).bytes
+        let directoryRecordData = try await rangedData(from: url, bytesRange: endRecord.centerDirectoryRange, delegate: delegate)
+        var length = directoryRecordData.count
+        var currentPointer = NSData(data: directoryRecordData).bytes
         var entries = [ZIPEntry]()
         
         while length > ZIPDirectoryRecord.sizeBytes {
