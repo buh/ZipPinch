@@ -31,7 +31,6 @@ extension URLSession {
         
         let fileHeaderData = NSData(data: try await rangedData(
             for: request,
-            httpMethod: "POST",
             bytesRange: entry.fileRange,
             delegate: delegate
         ))
@@ -44,6 +43,8 @@ extension URLSession {
             bytes: fileHeaderData.bytes.advanced(by: fileHeader.dataOffset),
             length: fileHeaderData.count - fileHeader.dataOffset
         )
+        
+        print("Compressed data", compressedData.count)
         
         let decompressedData: Data
         

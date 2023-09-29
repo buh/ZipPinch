@@ -37,6 +37,8 @@ struct ImagesView: View {
         .navigationBarTitleDisplayMode(.large)
         #endif
         .task { @MainActor in
+            guard entries.isEmpty else { return }
+            
             do {
                 entries = try await URLSession(configuration: .ephemeral).zipEntries(from: url)
             } catch {

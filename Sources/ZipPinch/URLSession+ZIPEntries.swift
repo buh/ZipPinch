@@ -53,7 +53,7 @@ private extension URLSession {
     ) async throws -> [ZIPEntry] {
         let endRecordData = try await rangedData(
             for: request,
-            bytesRange: (fileLength - ZIPEndRecord.size) ... (fileLength - 1),
+            bytesRange: (fileLength - ZIPEndRecord.size) ... fileLength,
             delegate: delegate
         )
         

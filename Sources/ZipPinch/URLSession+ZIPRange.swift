@@ -9,12 +9,12 @@ extension URLSession {
     /// Retrieves a part of the contents of a URL and delivers the data asynchronously.
     func rangedData(
         for request: URLRequest,
-        httpMethod: String = "GET",
         bytesRange: ClosedRange<Int64>,
         delegate: URLSessionTaskDelegate?
     ) async throws -> Data {
         var request = request
-//        request.httpMethod = httpMethod
+        request.httpMethod = "GET"
+        print("Range bytes", bytesRange, bytesRange.upperBound - bytesRange.lowerBound)
         request.addValue("bytes=\(bytesRange.lowerBound)-\(bytesRange.upperBound)", forHTTPHeaderField: "Range")
         let (data, _) = try await data(for: request, delegate: delegate)
         return data
