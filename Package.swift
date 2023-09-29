@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "ZipPinch",
-    platforms: [.macOS(.v12), .iOS(.v15)],
+    platforms: [.macOS(.v12), .iOS(.v15), .watchOS(.v8)],
     products: [
         .library(name: "ZipPinch", targets: ["ZipPinch"]),
     ],
