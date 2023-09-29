@@ -1,5 +1,6 @@
 import SwiftUI
 import ZipPinch
+import Gzip
 
 #if os(macOS)
 typealias XImage = NSImage
@@ -14,6 +15,7 @@ struct ImageView: View {
     
     @State private var dataImage: XImage?
     @State private var size = ""
+    @State private var error: String?
     
     var body: some View {
         ZStack {
@@ -42,8 +44,12 @@ struct ImageView: View {
                                 .foregroundColor(.white)
                         }
                         .frame(width: 150, height: 150)
-                    .padding()
+                        .padding()
                 }
+            } else if let error {
+                Label("ERROR: \(error)", systemImage: "xmark.octagon.fill")
+                    .symbolRenderingMode(.multicolor)
+                    .padding(.horizontal)
             } else {
                 ProgressView()
                     .progressViewStyle(.circular)
@@ -63,6 +69,7 @@ struct ImageView: View {
                 #endif
                 
             } catch {
+                self.error = error.localizedDescription
                 print("💥 Image:", error)
             }
         }
