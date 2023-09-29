@@ -8,12 +8,15 @@ struct ImagesView: View {
     @State private var entries = [ZIPEntry]()
     
     var body: some View {
-        List(entries) { entry in
+        List(Array(zip(entries.indices, entries)), id: \.0) { index, entry in
             if !entry.isDirectory {
                 NavigationLink {
                     ImageView(entry: entry, url: url)
                 } label: {
-                    HStack {
+                    HStack(spacing: 16) {
+                        Text("\(index).")
+                            .foregroundColor(.secondary)
+                        
                         VStack(alignment: .leading, spacing: 4) {
                             Text(entry.title)
                             
@@ -23,7 +26,9 @@ struct ImagesView: View {
                                     .font(.footnote)
                             }
                         }
+                        
                         Spacer()
+                        
                         Text(ByteCountFormatter.appFormatter.string(fromByteCount: entry.compressedSize))
                             .foregroundColor(.secondary)
                             .font(.caption)
