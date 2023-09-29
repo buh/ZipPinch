@@ -11,9 +11,24 @@ struct ImagesView: View {
         List(entries) { entry in
             if !entry.isDirectory {
                 NavigationLink {
-                    ImageView(entry: entry)
+                    ImageView(entry: entry, url: url)
                 } label: {
-                    Text(entry.title)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(entry.title)
+                            
+                            if let fileLastModificationDate = entry.fileLastModificationDate {
+                                Text("\(fileLastModificationDate, format: .dateTime)")
+                                    .foregroundColor(.secondary)
+                                    .font(.footnote)
+                            }
+                        }
+                        Spacer()
+                        Text(ByteCountFormatter.appFormatter.string(fromByteCount: entry.compressedSize))
+                            .foregroundColor(.secondary)
+                            .font(.caption)
+                    }
+                    .padding(.vertical, 4)
                 }
             }
         }

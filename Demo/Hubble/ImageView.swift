@@ -10,15 +10,7 @@ typealias XImage = UIImage
 struct ImageView: View {
     
     let entry: ZIPEntry?
-    
-    private let formatter: ByteCountFormatter = {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = .useAll
-        formatter.countStyle = .file
-        formatter.includesUnit = true
-        formatter.isAdaptive = true
-        return formatter
-    }()
+    let url: URL?
     
     @State private var dataImage: XImage?
     @State private var size = ""
@@ -59,11 +51,11 @@ struct ImageView: View {
         }
         .navigationTitle(entry?.title ?? "")
         .task { @MainActor in
-            guard let entry else { return }
+            guard let entry, let url else { return }
             
             do {
-                let data = try await URLSession(configuration: .ephemeral).zipEntryData(entry)
-                size = formatter.string(fromByteCount: Int64(data.count))
+                let data = try await URLSession(configuration: .ephemeral).zipEntryData(entry, from: url)
+                size = ByteCountFormatter.appFormatter.string(fromByteCount: Int64(data.count))
                 #if os(macOS)
                 dataImage = NSImage(data: data)
                 #else
@@ -85,8 +77,19 @@ struct ImageView: View {
     }
 }
 
+extension ByteCountFormatter {
+    static let appFormatter: ByteCountFormatter = {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = .useAll
+        formatter.countStyle = .file
+        formatter.includesUnit = true
+        formatter.isAdaptive = true
+        return formatter
+    }()
+}
+
 struct ImageView_Previews: PreviewProvider {
     static var previews: some View {
-        ImageView(entry: nil)
+        ImageView(entry: nil, url: nil)
     }
 }

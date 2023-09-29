@@ -5,17 +5,29 @@
 // The zip file information sources:
 // http://en.wikipedia.org/wiki/ZIP_(file_format)#File_headers
 // https://pkware.cachefly.net/webdocs/APPNOTE/APPNOTE-6.3.9.TXT
+// https://fossies.org/linux/unzip/proginfo/extrafld.txt
 
 import Foundation
 
 /// The ZIP entry.
 public struct ZIPEntry: Identifiable, Hashable, Codable {
     public let id: String
-    public let zipURL: URL
     
     /// The path to a file or directory.
     public let filePath: String
     let directoryRecord: ZIPDirectoryRecord
+    
+    public var compressedSize: Int64 { Int64(directoryRecord.compressedSize) }
+    public var uncompressedSize: Int64 { Int64(directoryRecord.uncompressedSize) }
+    
+    public var fileLastModificationDate: Date? {
+        guard directoryRecord.fileLastModificationDate != 0 else { return nil }
+        
+        return .msDOS(
+            date: directoryRecord.fileLastModificationDate,
+            time: directoryRecord.fileLastModificationTime
+        )
+    }
     
     /// Checks if the path is directory or not.
     public var isDirectory: Bool { filePath.last == "/" }
@@ -31,9 +43,8 @@ public struct ZIPEntry: Identifiable, Hashable, Codable {
         ... (Int64(directoryRecord.relativeOffsetOfLocalFileHeader) + Int64(length))
     }
     
-    init(url: URL, filePath: String, directoryRecord: ZIPDirectoryRecord) {
-        id = url.absoluteString + filePath
-        zipURL = url
+    init(filePath: String, directoryRecord: ZIPDirectoryRecord) {
+        id = filePath
         self.filePath = filePath
         self.directoryRecord = directoryRecord
     }
@@ -187,7 +198,7 @@ struct ZIPEndRecord64 {
     }
 }
 
-// MARK: - Helper
+// MARK: - Helpers
 
 private struct Extractor {
     let dataPointer: UnsafeRawPointer
@@ -200,4 +211,27 @@ private struct Extractor {
         pointerOffset += size
         return value
     }
+}
+
+// MARK: - MSDOS Date/Time
+
+private extension Date {
+    static func msDOS(date: UInt16, time: UInt16) -> Date? {
+        let day = (date & 0x1f)
+        let month = (date >> 5) & 0x0f
+        let year = ((date >> 9) & 0x7f) + 1980
+        let hours = (time >> 11)
+        let minutes = (time >> 5) & 0x3f
+        let seconds = (time & 0x1f) * 2
+        let string = "\(day)/\(month)/\(year) \(hours):\(minutes):\(seconds)"
+        return DateFormatter.msDos.date(from: string)
+    }
+}
+
+private extension DateFormatter {
+    static let msDos : DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM/yyyy HH:mm:ss"
+        return formatter
+    }()
 }
