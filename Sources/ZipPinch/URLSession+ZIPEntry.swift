@@ -10,12 +10,14 @@ extension URLSession {
     public func zipEntryData(
         _ entry: ZIPEntry,
         from url: URL,
-        delegate: URLSessionTaskDelegate? = nil
+        delegate: URLSessionTaskDelegate? = nil,
+        decompressor: (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
     ) async throws -> Data {
         try await zipEntryData(
             entry,
             for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData),
-            delegate: delegate
+            delegate: delegate,
+            decompressor: decompressor
         )
     }
     
@@ -23,7 +25,8 @@ extension URLSession {
     public func zipEntryData(
         _ entry: ZIPEntry,
         for request: URLRequest,
-        delegate: URLSessionTaskDelegate? = nil
+        delegate: URLSessionTaskDelegate? = nil,
+        decompressor: (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
     ) async throws -> Data {
         guard !entry.isDirectory else {
             throw ZIPRequestError.entryIsDirectory
@@ -49,7 +52,7 @@ extension URLSession {
         if fileHeader.compressionMethod == 0 {
             decompressedData = compressedData
         } else {
-            decompressedData = try compressedData.decompressed(using: .zlib)
+            decompressedData = try decompressor(compressedData)
         }
         
         return Data(referencing: decompressedData)
