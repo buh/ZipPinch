@@ -14,7 +14,6 @@ extension URLSession {
     ) async throws -> Data {
         var request = request
         request.httpMethod = "GET"
-        print("Range bytes", bytesRange, bytesRange.upperBound - bytesRange.lowerBound)
         request.addValue("bytes=\(bytesRange.lowerBound)-\(bytesRange.upperBound)", forHTTPHeaderField: "Range")
         let (data, _) = try await data(for: request, delegate: delegate)
         return data

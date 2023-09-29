@@ -44,16 +44,14 @@ extension URLSession {
             length: fileHeaderData.count - fileHeader.dataOffset
         )
         
-        print("Compressed data", compressedData.count)
-        
-        let decompressedData: Data
+        let decompressedData: NSData
         
         if fileHeader.compressionMethod == 0 {
-            decompressedData = Data(compressedData)
+            decompressedData = compressedData
         } else {
-            decompressedData = Data(try compressedData.decompressed(using: .zlib))
+            decompressedData = try compressedData.decompressed(using: .zlib)
         }
         
-        return decompressedData
+        return Data(referencing: decompressedData)
     }
 }
