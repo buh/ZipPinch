@@ -131,8 +131,16 @@ struct ZIPFileHeader {
 }
 
 // MARK: - ZIP End Record
+protocol ZIPEndRecordProtocol {
+    static var size: Int64 { get }
+    static var signature: [Int8]  { get }
+    
+    var centerDirectoryRange: ClosedRange<Int64> { get }
+    
+    init(dataPointer: UnsafeRawPointer)
+}
 
-struct ZIPEndRecord {
+struct ZIPEndRecord: ZIPEndRecordProtocol {
     static let size: Int64 = 4096
     static let signature: [Int8] = [0x50, 0x4b, 0x05, 0x06]
     
@@ -163,9 +171,9 @@ struct ZIPEndRecord {
     }
 }
 
-struct ZIPEndRecord64 {
+struct ZIPEndRecord64: ZIPEndRecordProtocol {
     static let size: Int64 = 4096
-    static let signature: [Int8] = [0x50, 0x4b, 0x05, 0x06] // Fix
+    static let signature: [Int8] = [0x50, 0x4b, 0x06, 0x06]
     
     let endOfCentralDirectorySignature: UInt32
     let sizeOfTheEOCD64: UInt64

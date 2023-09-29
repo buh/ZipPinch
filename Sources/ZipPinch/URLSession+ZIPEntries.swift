@@ -35,25 +35,40 @@ extension URLSession {
             throw ZIPRequestError.contentLengthTooSmall
         }
         
-        return try await findCentralDirectory(
-            for: request,
-            fileLength: response.expectedContentLength,
-            delegate: delegate
-        )
+        let entries: [ZIPEntry]
+        
+        if response.expectedContentLength > 0xffffffff {
+            entries = try await findCentralDirectory(
+                for: request,
+                fileLength: response.expectedContentLength,
+                endRecordType: ZIPEndRecord64.self,
+                delegate: delegate
+            )
+        } else {
+            entries = try await findCentralDirectory(
+                for: request,
+                fileLength: response.expectedContentLength,
+                endRecordType: ZIPEndRecord.self,
+                delegate: delegate
+            )
+        }
+        
+        return entries
     }
 }
 
 // MARK: - Extracting ZIP Entries
 
 private extension URLSession {
-    func findCentralDirectory(
+    func findCentralDirectory<T: ZIPEndRecordProtocol>(
         for request: URLRequest,
         fileLength: Int64,
+        endRecordType: T.Type,
         delegate: URLSessionTaskDelegate?
     ) async throws -> [ZIPEntry] {
         let endRecordData = try await rangedData(
             for: request,
-            bytesRange: (fileLength - ZIPEndRecord.size) ... fileLength,
+            bytesRange: (fileLength - endRecordType.size) ... fileLength,
             delegate: delegate
         )
         
@@ -64,7 +79,7 @@ private extension URLSession {
         repeat {
             guard let filePointer = memchr(currentPointer, 0x50, length) else { break }
             
-            if memcmp(ZIPEndRecord.signature, filePointer, 4) == 0 {
+            if memcmp(endRecordType.signature, filePointer, 4) == 0 {
                 foundPointer = UnsafeRawPointer(filePointer)
             }
             
@@ -81,13 +96,13 @@ private extension URLSession {
             throw ZIPRequestError.centralDirectoryNotFound
         }
         
-        let endRecord = ZIPEndRecord(dataPointer: foundPointer)
+        let endRecord = endRecordType.init(dataPointer: foundPointer)
         return try await parseCentralDirectory(for: request, endRecord: endRecord, delegate: delegate)
     }
     
     func parseCentralDirectory(
         for request: URLRequest,
-        endRecord: ZIPEndRecord,
+        endRecord: some ZIPEndRecordProtocol,
         delegate: URLSessionTaskDelegate?
     ) async throws -> [ZIPEntry] {
         let directoryRecordData = try await rangedData(
