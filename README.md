@@ -61,12 +61,15 @@ let data = try await urlSession.zipEntryData(entry, from: url)
 
 Check out the Hubble demo app to view selected images from the archive taken by [The Hubble Space Telescope](https://esahubble.org).
 
-# TODO
-- [x] Add custom `URLRequest`
-- [x] Add custom decompressor
-- [ ] Add more tests
-- [x] Fix Demo for iPad.
-- [ ] Fix Demo for macOS.
+# Features
+- [x] Custom `URLRequest`
+- [x] Task management with `URLSessionTaskDelegate`
+- [x] Support for a custom decompressor
+- [x] ZIP 64-bit support
+- [x] Demo for iPhone.
+- [x] Demo for iPad.
+- [x] Demo for macOS.
+- [ ] More tests
 
 # ZIP file format specification sources
 - [Wikipedia](http://en.wikipedia.org/wiki/ZIP_(file_format)#File_headers)
