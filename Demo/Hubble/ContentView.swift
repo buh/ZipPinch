@@ -5,7 +5,7 @@ struct ContentView: View {
     @State private var starsRotation = Angle.zero
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 stars()
                 VStack(spacing: 20) {

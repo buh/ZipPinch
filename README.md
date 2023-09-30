@@ -65,7 +65,8 @@ Check out the Hubble demo app to view selected images from the archive taken by 
 - [x] Add custom `URLRequest`
 - [x] Add custom decompressor
 - [ ] Add more tests
-- [ ] Fix Demo for macOS and iPad.
+- [x] Fix Demo for iPad.
+- [ ] Fix Demo for macOS.
 
 # ZIP file format specification sources
 - [Wikipedia](http://en.wikipedia.org/wiki/ZIP_(file_format)#File_headers)

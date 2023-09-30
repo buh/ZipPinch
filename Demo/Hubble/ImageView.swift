@@ -1,6 +1,5 @@
 import SwiftUI
 import ZipPinch
-import Gzip
 
 #if os(macOS)
 typealias XImage = NSImage
