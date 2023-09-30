@@ -6,6 +6,7 @@ struct ImagesView: View {
     let title: String
     let url: URL
     @State private var entries = [ZIPEntry]()
+    @State private var hoveredEntry: ZIPEntry?
     
     var body: some View {
         List(Array(zip(entries.indices, entries)), id: \.0) { index, entry in
@@ -34,6 +35,13 @@ struct ImagesView: View {
                             .font(.caption)
                     }
                     .padding(.vertical, 4)
+                    #if os(macOS)
+                    .padding(.horizontal, 4)
+                    .background(hoveredEntry == entry ? Color.accentColor.opacity(0.1) : nil)
+                    .onHover { isHovered in
+                        hoveredEntry = isHovered ? entry : nil
+                    }
+                    #endif
                 }
             }
         }

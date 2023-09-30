@@ -4,7 +4,10 @@ import SwiftUI
 struct HubbleApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ZStack {
+                Color.black
+                ContentView()
+            }
         }
     }
 }
