@@ -250,12 +250,12 @@ private extension Date {
         let minutes = (time >> 5) & 0x3f
         let seconds = (time & 0x1f) * 2
         let string = "\(day)/\(month)/\(year) \(hours):\(minutes):\(seconds)"
-        return DateFormatter.msDos.date(from: string)
+        return DateFormatter.msDOS.date(from: string)
     }
 }
 
 private extension DateFormatter {
-    static let msDos : DateFormatter = {
+    static let msDOS : DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd/MM/yyyy HH:mm:ss"
         return formatter
