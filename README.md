@@ -1,4 +1,6 @@
-
+<p align="center">
+  <img width="640" alt="ZipPinch cover" src="https://github.com/buh/ZipPinch/assets/284922/d261cb36-e552-4866-a9ad-ffab5442601b">
+</p>
 
 `ZipPinch` is an extension for `URLSession` to work with zip files remotely. It reads the contents of a zip file without downloading it itself and decompresses the desired files.
 
