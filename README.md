@@ -2,6 +2,12 @@
   <img width="640" alt="ZipPinch cover" src="https://github.com/buh/ZipPinch/assets/284922/d261cb36-e552-4866-a9ad-ffab5442601b">
 </p>
 
+<p align="center">
+  <!--img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbuh%2FCompactSlider%2Fbadge%3Ftype%3Dswift-versions" />
+  <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbuh%2FCompactSlider%2Fbadge%3Ftype%3Dplatforms" /-->
+  <a href="https://github.com/buh/CompactSlider/blob/main/LICENSE"><img src="https://img.shields.io/github/license/buh/ZipPinch" /></a>
+</p>
+
 `ZipPinch` is an extension for `URLSession` to work with zip files remotely. It reads the contents of a zip file without downloading it itself and decompresses the desired files.
 
 Imagine that you need remote access to several files (different kinds of assets: pictures, fonts, etc.). And these files can be changed and added to. Perhaps these files are grouped, for example, by locale and your app needs assets for a particular locale. In a good way you need a server solution that returns some JSON with a description of available resources. For example, you can use any PaaS, but `ZipPinch` offers a much simpler solution. 
