@@ -45,23 +45,25 @@ struct ContentView: View {
     
     @ViewBuilder
     private func stars() -> some View {
-        GeometryReader { proxy in
-            let w = max(proxy.size.width, proxy.size.height)
-            
-            ForEach(0...100, id: \.self) { _ in
-                let s = CGFloat(Int.random(in: 10...30)) / 10
-                let o = Double(Int.random(in: 30 ... 100)) / 100
+        ZStack {
+            GeometryReader { proxy in
+                let w = max(proxy.size.width, proxy.size.height)
                 
-                Circle()
-                    .fill(Color.white.opacity(o))
-                    .frame(width: s, height: s)
-                    .offset(x: CGFloat.random(in: 0...w), y: CGFloat.random(in: 0...w))
-                    .shadow(color: Color.white.opacity(o), radius: 2 * s)
+                ForEach(0...100, id: \.self) { _ in
+                    let s = CGFloat(Int.random(in: 10...30)) / 10
+                    let o = Double(Int.random(in: 30 ... 100)) / 100
+                    
+                    Circle()
+                        .fill(Color.white.opacity(o))
+                        .frame(width: s, height: s)
+                        .offset(x: CGFloat.random(in: 0...w), y: CGFloat.random(in: 0...w))
+                        .shadow(color: Color.white.opacity(o), radius: 2 * s)
+                }
             }
         }
         .drawingGroup()
         .rotationEffect(starsRotation)
-        .onAppear {
+        .task {
             withAnimation(.linear(duration: 60).repeatForever(autoreverses: false)) {
                 starsRotation = .degrees(360)
             }
