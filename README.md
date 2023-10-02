@@ -68,10 +68,10 @@ Check out the Hubble demo app to view selected images from the archive taken by 
 - [x] Task management with `URLSessionTaskDelegate`
 - [x] Support for a custom decompressor
 - [x] ZIP 64-bit support
-- [x] Demo for iPhone.
-- [x] Demo for iPad.
-- [x] Demo for macOS.
-- [ ] More tests
+- [x] Tracking the downloading progress
+- [x] Demo for iPhone/iPad/macOS.
+- [ ] ZIP entries as a tree of Folders/Files.
+- [ ] Dowload a folder.
 
 # ZIP file format specification sources
 - [Wikipedia](http://en.wikipedia.org/wiki/ZIP_(file_format)#File_headers)
