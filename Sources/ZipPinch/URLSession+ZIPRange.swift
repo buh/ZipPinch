@@ -35,12 +35,24 @@ extension URLSession {
         let (data, _) = try await data(for: request, delegate: delegate)
         return data
     }
+    
+    /// Retrieves a part of the contents as bytes of a URL and delivers the data asynchronously.
+    func rangedAsyncBytes(
+        for request: URLRequest,
+        bytesRange: ClosedRange<Int64>,
+        delegate: URLSessionTaskDelegate?
+    ) async throws -> (AsyncBytes, URLResponse) {
+        var request = request
+        request.httpMethod = "GET"
+        request.addValue("bytes=\(bytesRange.lowerBound)-\(bytesRange.upperBound)", forHTTPHeaderField: "Range")
+        return try await bytes(for: request, delegate: delegate)
+    }
 }
 
 // MARK: - Errors
 
 /// ZIP requests errors.
-public enum ZIPRequestError: Error {
+public enum ZIPRequestError: Error, Equatable {
     /// The response was unsuccessful.
     case badResponseStatusCode(Int)
     /// The response does not contain a `Content-Length` header.
@@ -52,6 +64,8 @@ public enum ZIPRequestError: Error {
     case centralDirectoryNotFound
     /// The file inside the zip file is not found or its size is zero.
     case fileNotFound
+    /// The file data failed to receive.
+    case fileDataFailedToReceive
     /// The requested entry file data is a directory.
     case entryIsDirectory
 }

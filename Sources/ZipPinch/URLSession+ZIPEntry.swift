@@ -22,40 +22,90 @@
 
 import Foundation
 
-extension URLSession {
+/// Progress callback container.
+/// It can be configured for buffer size, which will affect how often the callback is invoked.
+public struct ZIPProgress {
+    /// A number of bytes of the buffer, which will affect how often the callback is invoked.
+    /// It can be greater than or equal to 64 Kb (default value).
+    public let bufferSize: Int
+    
+    /// Callback progress with a value between 0 and 1.
+    public let callback: (Double) -> Void
+    
+    /// Creates the progress container.
+    /// - Parameters:
+    ///   - bufferSize: the number of bytes of the buffer (64 Kb by default).
+    ///   - callback: the callback progress with a value between 0 and 1.
+    public init(bufferSize: Int = 0xffff, callback: @escaping (Double) -> Void) {
+        self.bufferSize = bufferSize
+        self.callback = callback
+    }
+}
+
+public extension URLSession {
     /// Retrieves the contents of the ZIP entry.
-    public func zipEntryData(
+    func zipEntryData(
         _ entry: ZIPEntry,
         from url: URL,
         delegate: URLSessionTaskDelegate? = nil,
+        progress: ZIPProgress? = nil,
         decompressor: (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
     ) async throws -> Data {
         try await zipEntryData(
             entry,
             for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData),
             delegate: delegate,
+            progress: progress,
             decompressor: decompressor
         )
     }
     
     /// Retrieves the contents of the ZIP entry.
-    public func zipEntryData(
+    func zipEntryData(
         _ entry: ZIPEntry,
         for request: URLRequest,
         delegate: URLSessionTaskDelegate? = nil,
+        progress: ZIPProgress? = nil,
         decompressor: (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
     ) async throws -> Data {
         guard !entry.isDirectory else {
             throw ZIPRequestError.entryIsDirectory
         }
         
-        let fileHeaderData = NSData(data: try await rangedData(
-            for: request,
-            bytesRange: entry.fileRange,
-            delegate: delegate
-        ))
+        var receivedData: Data?
         
-        guard fileHeaderData.count > 0 else { throw ZIPRequestError.fileNotFound }
+        if let progress, (entry.compressedSize == 0 || progress.bufferSize < Int(entry.compressedSize)) {
+            do {
+                receivedData = try await zipEntryDataWithProgress(
+                    for: request,
+                    bytesRange: entry.fileRange,
+                    delegate: delegate,
+                    progress: progress
+                )
+            } catch let error as ZIPRequestError {
+                if error != .expectedContentLengthUnknown {
+                    throw error
+                }
+            }
+        }
+        
+        if receivedData == nil {
+            receivedData = try await rangedData(
+                for: request,
+                bytesRange: entry.fileRange,
+                delegate: delegate
+            )
+        }
+        
+        guard let receivedData else {
+            throw ZIPRequestError.fileDataFailedToReceive
+        }
+        
+        let fileHeaderData = NSData(data: receivedData)
+        
+        guard fileHeaderData.count > 0 else {
+            throw ZIPRequestError.fileNotFound
+        }
         
         let fileHeader = ZIPFileHeader(dataPointer: fileHeaderData.bytes)
         
@@ -73,5 +123,49 @@ extension URLSession {
         }
         
         return Data(referencing: decompressedData)
+    }
+}
+
+// MARK: - Private
+
+private extension URLSession {
+    func zipEntryDataWithProgress(
+        for request: URLRequest,
+        bytesRange: ClosedRange<Int64>,
+        delegate: URLSessionTaskDelegate?,
+        progress: ZIPProgress
+    ) async throws -> Data {
+        let (asyncBytes, urlResponse) = try await rangedAsyncBytes(
+            for: request,
+            bytesRange: bytesRange,
+            delegate: delegate
+        )
+        
+        let length = urlResponse.expectedContentLength
+        guard length > 0 else { throw ZIPRequestError.expectedContentLengthUnknown }
+        
+        var data = Data()
+        data.reserveCapacity(Int(length))
+        let bufferSize = max(progress.bufferSize, 0xffff) // min 64 Kb
+        var buffer = Data()
+        buffer.reserveCapacity(min(Int(length), bufferSize))
+        
+        for try await byte in asyncBytes {
+            try Task.checkCancellation()
+            buffer.append(byte)
+            
+            if buffer.count >= bufferSize {
+                data.append(buffer)
+                buffer.removeAll(keepingCapacity: true)
+                progress.callback(Double(data.count) / Double(length))
+            }
+        }
+        
+        if !buffer.isEmpty {
+            data.append(buffer)
+            progress.callback(1)
+        }
+        
+        return data
     }
 }
