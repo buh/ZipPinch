@@ -59,11 +59,15 @@ struct ImagesView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(entry.title)
                             
-                            if let fileLastModificationDate = entry.fileLastModificationDate {
-                                Text("\(fileLastModificationDate, format: .dateTime)")
-                                    .foregroundColor(.secondary)
-                                    .font(.footnote)
+                            Group {
+                                Text(entry.filePath)
+                                
+                                if let fileLastModificationDate = entry.fileLastModificationDate {
+                                    Text("\(fileLastModificationDate, format: .dateTime)")
+                                }
                             }
+                            .foregroundColor(.secondary)
+                            .font(.footnote)
                         }
                         
                         Spacer()
