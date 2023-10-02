@@ -58,7 +58,9 @@ public struct ZIPEntry: Identifiable, Hashable, Codable {
     
     var fileRange: ClosedRange<Int64> {
         Int64(directoryRecord.relativeOffsetOfLocalFileHeader)
-        ... (Int64(directoryRecord.relativeOffsetOfLocalFileHeader) + Int64(length))
+        // The 16 extra bytes is because the extraFieldLength is sometimes different
+        // from the length of the centralDirectory and fileEntry header.
+        ... (Int64(directoryRecord.relativeOffsetOfLocalFileHeader) + Int64(length) + 16)
     }
     
     init(filePath: String, directoryRecord: ZIPDirectoryRecord) {
