@@ -69,7 +69,7 @@ public extension URLSession {
         decompressor: (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
     ) async throws -> Data {
         guard !entry.isDirectory else {
-            throw ZIPRequestError.entryIsDirectory
+            throw ZIPError.entryIsDirectory
         }
         
         var receivedData: Data?
@@ -82,7 +82,7 @@ public extension URLSession {
                     delegate: delegate,
                     progress: progress
                 )
-            } catch let error as ZIPRequestError {
+            } catch let error as ZIPError {
                 if error != .expectedContentLengthUnknown {
                     throw error
                 }
@@ -98,13 +98,13 @@ public extension URLSession {
         }
         
         guard let receivedData else {
-            throw ZIPRequestError.fileDataFailedToReceive
+            throw ZIPError.fileDataFailedToReceive
         }
         
         let fileHeaderData = NSData(data: receivedData)
         
         guard fileHeaderData.count > 0 else {
-            throw ZIPRequestError.fileNotFound
+            throw ZIPError.fileNotFound
         }
         
         let fileHeader = ZIPFileHeader(dataPointer: fileHeaderData.bytes)
@@ -142,7 +142,7 @@ private extension URLSession {
         )
         
         let length = urlResponse.expectedContentLength
-        guard length > 0 else { throw ZIPRequestError.expectedContentLengthUnknown }
+        guard length > 0 else { throw ZIPError.expectedContentLengthUnknown }
         
         var data = Data()
         data.reserveCapacity(Int(length))

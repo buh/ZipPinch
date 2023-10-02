@@ -52,7 +52,7 @@ extension URLSession {
 // MARK: - Errors
 
 /// ZIP requests errors.
-public enum ZIPRequestError: Error, Equatable {
+public enum ZIPError: Error, Equatable {
     /// The response was unsuccessful.
     case badResponseStatusCode(Int)
     /// The response does not contain a `Content-Length` header.
@@ -68,4 +68,24 @@ public enum ZIPRequestError: Error, Equatable {
     case fileDataFailedToReceive
     /// The requested entry file data is a directory.
     case entryIsDirectory
+    
+    public var localizedDescription: String {
+        switch self {
+        case .badResponseStatusCode(let statusCode):
+            "The response was unsuccessful (Status Code: \(statusCode))."
+        case .expectedContentLengthUnknown:
+            "The response does not contain a `Content-Length` header. "
+            + "The server hosting the zip file must support the `Content-Length` header."
+        case .contentLengthTooSmall:
+            "The size of the zip file is smaller than expected."
+        case .centralDirectoryNotFound:
+            "No central directory information was found inside the zip file."
+        case .fileNotFound:
+            "The file inside the zip file is not found or its size is zero."
+        case .fileDataFailedToReceive:
+            "The file data failed to receive."
+        case .entryIsDirectory:
+            "The requested entry file data is a directory."
+        }
+    }
 }

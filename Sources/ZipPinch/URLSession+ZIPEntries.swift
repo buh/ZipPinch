@@ -41,15 +41,15 @@ extension URLSession {
         let httpStatusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
         
         guard 200..<300 ~= httpStatusCode else {
-            throw ZIPRequestError.badResponseStatusCode(httpStatusCode)
+            throw ZIPError.badResponseStatusCode(httpStatusCode)
         }
         
         if response.expectedContentLength == -1 {
-            throw ZIPRequestError.expectedContentLengthUnknown
+            throw ZIPError.expectedContentLengthUnknown
         }
         
         guard response.expectedContentLength > ZIPEndRecord.size else {
-            throw ZIPRequestError.contentLengthTooSmall
+            throw ZIPError.contentLengthTooSmall
         }
         
         let entries: [ZIPEntry]
@@ -57,14 +57,14 @@ extension URLSession {
         if response.expectedContentLength > 0xffffffff {
             entries = try await findCentralDirectory(
                 for: request,
-                fileLength: response.expectedContentLength,
+                contentLength: response.expectedContentLength,
                 endRecordType: ZIPEndRecord64.self,
                 delegate: delegate
             )
         } else {
             entries = try await findCentralDirectory(
                 for: request,
-                fileLength: response.expectedContentLength,
+                contentLength: response.expectedContentLength,
                 endRecordType: ZIPEndRecord.self,
                 delegate: delegate
             )
@@ -79,13 +79,13 @@ extension URLSession {
 private extension URLSession {
     func findCentralDirectory<T: ZIPEndRecordProtocol>(
         for request: URLRequest,
-        fileLength: Int64,
+        contentLength: Int64,
         endRecordType: T.Type,
         delegate: URLSessionTaskDelegate?
     ) async throws -> [ZIPEntry] {
         let endRecordData = try await rangedData(
             for: request,
-            bytesRange: (fileLength - endRecordType.size) ... fileLength,
+            bytesRange: (contentLength - endRecordType.size) ... contentLength,
             delegate: delegate
         )
         
@@ -110,7 +110,7 @@ private extension URLSession {
         } while true
         
         guard let foundPointer else {
-            throw ZIPRequestError.centralDirectoryNotFound
+            throw ZIPError.centralDirectoryNotFound
         }
         
         let endRecord = endRecordType.init(dataPointer: foundPointer)
