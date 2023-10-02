@@ -15,6 +15,7 @@ struct ImageView: View {
     @State private var dataImage: XImage?
     @State private var size = ""
     @State private var error: String?
+    @State private var progress: Double = 0
     
     var body: some View {
         ZStack {
@@ -50,8 +51,8 @@ struct ImageView: View {
                     .symbolRenderingMode(.multicolor)
                     .padding(.horizontal)
             } else {
-                ProgressView()
-                    .progressViewStyle(.circular)
+                ProgressView(value: progress)
+                    .padding(.horizontal)
             }
         }
         .navigationTitle(entry?.title ?? "")
@@ -59,8 +60,18 @@ struct ImageView: View {
             guard let entry, let url else { return }
             
             do {
-                let data = try await URLSession(configuration: .ephemeral).zipEntryData(entry, from: url)
-                size = ByteCountFormatter.appFormatter.string(fromByteCount: Int64(data.count))
+                let data = try await URLSession(configuration: .ephemeral)
+                    .zipEntryData(
+                        entry,
+                        from: url,
+                        progress:  .init(bufferSize: 0x1ffff) { progressValue in
+                            Task { @MainActor in
+                                self.progress = progressValue
+                            }
+                        }
+                    )
+                
+                size = ByteCountFormatter.appFormatter.string(fromByteCount: entry.uncompressedSize)
                 #if os(macOS)
                 dataImage = NSImage(data: data)
                 #else
@@ -69,7 +80,7 @@ struct ImageView: View {
                 
             } catch {
                 self.error = error.localizedDescription
-                print("💥 Image:", error)
+                print("💥 ImageView:", error)
             }
         }
     }
