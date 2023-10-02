@@ -78,6 +78,9 @@ struct ImageView: View {
                 dataImage = UIImage(data: data, scale: 3)
                 #endif
                 
+                if dataImage == nil {
+                    self.error = "The file is not an image"
+                }
             } catch let zipError as ZIPError {
                 self.error = zipError.localizedDescription
                 print("💥 ImageView:", zipError)
