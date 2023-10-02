@@ -7,8 +7,46 @@ struct ImagesView: View {
     let url: URL
     @State private var entries = [ZIPEntry]()
     @State private var hoveredEntry: ZIPEntry?
+    @State private var isLoading = false
+    @State private var error: String?
     
     var body: some View {
+        ZStack {
+            if isLoading {
+                ProgressView()
+                    .progressViewStyle(.circular)
+            } else if let error {
+                Label("**ERROR**\n\(error)", systemImage: "xmark.octagon.fill")
+                    .symbolRenderingMode(.multicolor)
+                    .padding(.horizontal)
+            } else {
+                entriesList
+            }
+        }
+        .navigationTitle(title)
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+        #endif
+        .task { @MainActor in
+            guard entries.isEmpty else { return }
+            
+            do {
+                isLoading = true
+                entries = try await URLSession(configuration: .ephemeral).zipEntries(from: url)
+            } catch let zipError as ZIPError {
+                self.error = zipError.localizedDescription
+                print("💥 ImagesView:", zipError)
+            } catch {
+                self.error = error.localizedDescription
+                print("💥 ImagesView:", error)
+            }
+            
+            isLoading = false
+        }
+    }
+    
+    @ViewBuilder
+    private var entriesList: some View {
         List(Array(zip(entries.indices, entries)), id: \.0) { index, entry in
             if !entry.isDirectory {
                 NavigationLink {
@@ -43,19 +81,6 @@ struct ImagesView: View {
                     }
                     #endif
                 }
-            }
-        }
-        .navigationTitle(title)
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
-        #endif
-        .task { @MainActor in
-            guard entries.isEmpty else { return }
-            
-            do {
-                entries = try await URLSession(configuration: .ephemeral).zipEntries(from: url)
-            } catch {
-                print("💥 Images:", error)
             }
         }
     }

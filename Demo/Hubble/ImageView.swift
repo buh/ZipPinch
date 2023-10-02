@@ -47,7 +47,7 @@ struct ImageView: View {
                         .padding()
                 }
             } else if let error {
-                Label("ERROR: \(error)", systemImage: "xmark.octagon.fill")
+                Label("**ERROR**\n\(error)", systemImage: "xmark.octagon.fill")
                     .symbolRenderingMode(.multicolor)
                     .padding(.horizontal)
             } else {
@@ -78,6 +78,9 @@ struct ImageView: View {
                 dataImage = UIImage(data: data, scale: 3)
                 #endif
                 
+            } catch let zipError as ZIPError {
+                self.error = zipError.localizedDescription
+                print("💥 ImageView:", zipError)
             } catch {
                 self.error = error.localizedDescription
                 print("💥 ImageView:", error)
