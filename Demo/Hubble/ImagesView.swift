@@ -89,6 +89,12 @@ struct ImagesView: View {
                     .foregroundColor(.secondary)
                     .font(.footnote)
                 }
+                
+                Spacer()
+                
+                Text(ByteCountFormatter.appFormatter.string(fromByteCount: folder.size))
+                    .foregroundColor(.secondary)
+                    .font(.caption)
             }
         }
     }

@@ -29,6 +29,7 @@ public struct ZIPFolder: Identifiable, Hashable, Equatable {
     public let name: String
     public internal(set) var entries: [ZIPEntry] = []
     public internal(set) var subfolders: [Self] = []
+    public internal(set) var size: Int64 = 0
 }
 
 public extension [ZIPEntry] {
@@ -57,7 +58,18 @@ public extension [ZIPEntry] {
             rootFolder.subfolders.appendEntry(entry, at: indices)
         }
         
+        rootFolder.calcSize()
         return rootFolder
+    }
+}
+
+private extension ZIPFolder {
+    @discardableResult
+    mutating func calcSize() -> Int64 {
+        let entriesSize = entries.reduce(0) { $0 + $1.compressedSize }
+        let subfoldersSize = subfolders.foldersSize()
+        size = entriesSize + subfoldersSize
+        return size
     }
 }
 
@@ -105,5 +117,15 @@ private extension [ZIPFolder] {
         } else {
             self[firstIndex].subfolders.appendEntry(entry, at: indices)
         }
+    }
+    
+    mutating func foldersSize() -> Int64 {
+        var size: Int64 = 0
+        
+        for index in 0..<count {
+            size += self[index].calcSize()
+        }
+        
+        return size
     }
 }
