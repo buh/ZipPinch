@@ -32,7 +32,8 @@ extension URLSession {
         var request = request
         request.httpMethod = "GET"
         request.addValue("bytes=\(bytesRange.lowerBound)-\(bytesRange.upperBound)", forHTTPHeaderField: "Range")
-        let (data, _) = try await data(for: request, delegate: delegate)
+        let (data, response) = try await data(for: request, delegate: delegate)
+        try response.checkStatusCodeOK()
         return data
     }
     
@@ -46,6 +47,16 @@ extension URLSession {
         request.httpMethod = "GET"
         request.addValue("bytes=\(bytesRange.lowerBound)-\(bytesRange.upperBound)", forHTTPHeaderField: "Range")
         return try await bytes(for: request, delegate: delegate)
+    }
+}
+
+extension URLResponse {
+    func checkStatusCodeOK() throws {
+        let httpStatusCode = (self as? HTTPURLResponse)?.statusCode ?? 0
+        
+        guard 200..<300 ~= httpStatusCode else {
+            throw ZIPError.badResponseStatusCode(httpStatusCode)
+        }
     }
 }
 

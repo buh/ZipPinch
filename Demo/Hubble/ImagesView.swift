@@ -6,9 +6,16 @@ struct ImagesView: View {
     let title: String
     let url: URL
     @State private var entries = [ZIPEntry]()
+    @State private var rootFolder: ZIPFolder
     @State private var hoveredEntry: ZIPEntry?
     @State private var isLoading = false
     @State private var error: String?
+    
+    init(title: String, url: URL, rootFolder: ZIPFolder? = nil) {
+        self.title = title
+        self.url = url
+        _rootFolder = .init(initialValue: rootFolder ?? .empty)
+    }
     
     var body: some View {
         ZStack {
@@ -20,7 +27,7 @@ struct ImagesView: View {
                     .symbolRenderingMode(.multicolor)
                     .padding(.horizontal)
             } else {
-                entriesList
+                folderView
             }
         }
         .navigationTitle(title)
@@ -28,11 +35,12 @@ struct ImagesView: View {
         .navigationBarTitleDisplayMode(.large)
         #endif
         .task { @MainActor in
-            guard entries.isEmpty else { return }
+            guard entries.isEmpty, rootFolder == .empty else { return }
             
             do {
                 isLoading = true
                 entries = try await URLSession(configuration: .ephemeral).zipEntries(from: url)
+                rootFolder = entries.rootFolder()
             } catch let zipError as ZIPError {
                 self.error = zipError.localizedDescription
                 print("💥 ImagesView:", zipError)
@@ -46,54 +54,78 @@ struct ImagesView: View {
     }
     
     @ViewBuilder
-    private var entriesList: some View {
-        List(Array(zip(entries.indices, entries)), id: \.0) { index, entry in
-            if !entry.isDirectory {
-                NavigationLink {
-                    ImageView(entry: entry, url: url)
-                } label: {
-                    HStack(spacing: 16) {
-                        Text("\(index).")
-                            .foregroundColor(.secondary)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(entry.title)
-                            
-                            Group {
-                                Text(entry.filePath)
-                                
-                                if let fileLastModificationDate = entry.fileLastModificationDate {
-                                    Text("\(fileLastModificationDate, format: .dateTime)")
-                                }
-                            }
-                            .foregroundColor(.secondary)
-                            .font(.footnote)
+    private var folderView: some View {
+        List {
+            ForEach(rootFolder.subfolders) { subfolder in
+                folderLink(folder: subfolder)
+            }
+            
+            ForEach(rootFolder.entries) { entry in
+                imageLink(entry: entry)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func folderLink(folder: ZIPFolder) -> some View {
+        NavigationLink {
+            ImagesView(title: folder.name, url: url, rootFolder: folder)
+        } label: {
+            HStack(spacing: 16) {
+                Image(systemName: "folder")
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(folder.name)
+                    
+                    HStack(spacing: 8) {
+                        if folder.entries.count > 0 {
+                            Text("\(folder.entries.count) files")
                         }
                         
-                        Spacer()
-                        
-                        Text(ByteCountFormatter.appFormatter.string(fromByteCount: entry.compressedSize))
-                            .foregroundColor(.secondary)
-                            .font(.caption)
+                        if folder.subfolders.count > 0 {
+                            Text("\(folder.subfolders.count) folders")
+                        }
                     }
-                    .padding(.vertical, 4)
-                    #if os(macOS)
-                    .padding(.horizontal, 4)
-                    .background(hoveredEntry == entry ? Color.accentColor.opacity(0.1) : nil)
-                    .onHover { isHovered in
-                        hoveredEntry = isHovered ? entry : nil
-                    }
-                    #endif
+                    .foregroundColor(.secondary)
+                    .font(.footnote)
                 }
             }
         }
     }
-}
-
-extension ZIPEntry {
-    var title: String {
-        let fileName = String(filePath.suffix(filePath.count - 7))
-        return String(fileName.prefix(fileName.count - 4))
+    
+    @ViewBuilder
+    private func imageLink(entry: ZIPEntry) -> some View {
+        NavigationLink {
+            ImageView(entry: entry, url: url)
+        } label: {
+            HStack(spacing: 16) {
+                Image(systemName: "photo")
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(entry.fileName)
+                    
+                    if let fileLastModificationDate = entry.fileLastModificationDate {
+                        Text("\(fileLastModificationDate, format: .dateTime)")
+                            .foregroundColor(.secondary)
+                            .font(.footnote)
+                    }
+                }
+                
+                Spacer()
+                
+                Text(ByteCountFormatter.appFormatter.string(fromByteCount: entry.compressedSize))
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+            }
+            .padding(.vertical, 4)
+            #if os(macOS)
+            .padding(.horizontal, 4)
+            .background(hoveredEntry == entry ? Color.accentColor.opacity(0.1) : nil)
+            .onHover { isHovered in
+                hoveredEntry = isHovered ? entry : nil
+            }
+            #endif
+        }
     }
 }
 

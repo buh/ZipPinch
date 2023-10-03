@@ -33,6 +33,7 @@ public struct ZIPEntry: Identifiable, Hashable, Codable {
     
     /// The path to a file or directory.
     public let filePath: String
+    public let fileName: String
     let directoryRecord: ZIPDirectoryRecord
     
     public var compressedSize: Int64 { Int64(directoryRecord.compressedSize) }
@@ -66,6 +67,13 @@ public struct ZIPEntry: Identifiable, Hashable, Codable {
     init(filePath: String, directoryRecord: ZIPDirectoryRecord) {
         id = filePath
         self.filePath = filePath
+        
+        if filePath.hasSuffix("/") {
+            fileName = ""
+        } else {
+            fileName = filePath.components(separatedBy: "/").last ?? ""
+        }
+        
         self.directoryRecord = directoryRecord
     }
 }

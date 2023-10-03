@@ -38,11 +38,7 @@ extension URLSession {
         headRequest.setValue("None", forHTTPHeaderField: "Accept-Encoding")
         let (_, response) = try await data(for: headRequest, delegate: delegate)
         
-        let httpStatusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-        
-        guard 200..<300 ~= httpStatusCode else {
-            throw ZIPError.badResponseStatusCode(httpStatusCode)
-        }
+        try response.checkStatusCodeOK()
         
         if response.expectedContentLength == -1 {
             throw ZIPError.expectedContentLengthUnknown

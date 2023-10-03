@@ -55,7 +55,7 @@ struct ImageView: View {
                     .padding(.horizontal)
             }
         }
-        .navigationTitle(entry?.title ?? "")
+        .navigationTitle(entry?.fileName ?? "")
         .task { @MainActor in
             guard let entry, let url else { return }
             
