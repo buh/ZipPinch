@@ -56,6 +56,12 @@ struct ImagesView: View {
     @ViewBuilder
     private var folderView: some View {
         List {
+            Section {
+                HStack {
+                    folderMetaInfo(rootFolder, isRoot: true)
+                }
+            }
+            
             ForEach(rootFolder.subfolders) { subfolder in
                 folderLink(folder: subfolder)
             }
@@ -76,18 +82,7 @@ struct ImagesView: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(folder.name)
-                    
-                    HStack(spacing: 8) {
-                        if folder.entries.count > 0 {
-                            Text("\(folder.entries.count) files")
-                        }
-                        
-                        if folder.subfolders.count > 0 {
-                            Text("\(folder.subfolders.count) folders")
-                        }
-                    }
-                    .foregroundColor(.secondary)
-                    .font(.footnote)
+                    folderMetaInfo(folder)
                 }
                 
                 Spacer()
@@ -97,6 +92,31 @@ struct ImagesView: View {
                     .font(.caption)
             }
         }
+    }
+    
+    @ViewBuilder
+    private func folderMetaInfo(_ folder: ZIPFolder, isRoot: Bool = false) -> some View {
+        Group {
+            HStack(spacing: 8) {
+                if folder.subfolders.count > 0 {
+                    Text("\(folder.subfolders.count) folder(s)")
+                }
+                
+                if folder.entries.count > 0 {
+                    Text("\(folder.entries.count) file(s)")
+                }
+            }
+            
+            if isRoot {
+                Spacer()
+            }
+            
+            if let lastModificationDate = folder.lastModificationDate {
+                Text("\(lastModificationDate, format: .dateTime)")
+            }
+        }
+        .foregroundColor(.secondary)
+        .font(.footnote)
     }
     
     @ViewBuilder
