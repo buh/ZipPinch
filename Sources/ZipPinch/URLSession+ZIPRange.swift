@@ -77,6 +77,8 @@ public enum ZIPError: Error, Equatable {
     case fileNotFound
     /// The file data failed to receive.
     case fileDataFailedToReceive
+    /// The received file data size is too small.
+    case receivedFileDataSizeSmall
     /// The requested entry file data is a directory.
     case entryIsDirectory
     
@@ -95,6 +97,8 @@ public enum ZIPError: Error, Equatable {
             "The file inside the zip file is not found or its size is zero."
         case .fileDataFailedToReceive:
             "The file data failed to receive."
+        case .receivedFileDataSizeSmall:
+            "The received file data size is too small."
         case .entryIsDirectory:
             "The requested entry file data is a directory."
         }

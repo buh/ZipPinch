@@ -109,6 +109,10 @@ public extension URLSession {
         
         let fileHeader = ZIPFileHeader(dataPointer: fileHeaderData.bytes)
         
+        guard receivedData.count >= entry.compressedSize else {
+            throw ZIPError.receivedFileDataSizeSmall
+        }
+        
         let compressedData = NSData(
             bytes: fileHeaderData.bytes.advanced(by: fileHeader.dataOffset),
             length: fileHeaderData.count - fileHeader.dataOffset
