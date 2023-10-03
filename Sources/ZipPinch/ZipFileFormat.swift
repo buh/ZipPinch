@@ -39,8 +39,8 @@ public struct ZIPEntry: Identifiable, Hashable, Codable {
     public var compressedSize: Int64 { Int64(directoryRecord.compressedSize) }
     public var uncompressedSize: Int64 { Int64(directoryRecord.uncompressedSize) }
     
-    public var fileLastModificationDate: Date? {
-        guard directoryRecord.fileLastModificationDate != 0 else { return nil }
+    public var fileLastModificationDate: Date {
+        guard directoryRecord.fileLastModificationDate != 0 else { return .msDOSReferenceDate }
         
         return .msDOS(
             date: directoryRecord.fileLastModificationDate,
@@ -251,8 +251,8 @@ private struct Extractor {
 
 // MARK: - MSDOS Date/Time
 
-private extension Date {
-    static func msDOS(date: UInt16, time: UInt16) -> Date? {
+extension Date {
+    fileprivate static func msDOS(date: UInt16, time: UInt16) -> Date {
         let day = (date & 0x1f)
         let month = (date >> 5) & 0x0f
         let year = ((date >> 9) & 0x7f) + 1980
@@ -260,8 +260,10 @@ private extension Date {
         let minutes = (time >> 5) & 0x3f
         let seconds = (time & 0x1f) * 2
         let string = "\(day)/\(month)/\(year) \(hours):\(minutes):\(seconds)"
-        return DateFormatter.msDOS.date(from: string)
+        return DateFormatter.msDOS.date(from: string) ?? .msDOSReferenceDate
     }
+    
+    static let msDOSReferenceDate = Date(timeIntervalSince1970: 315_964_800)
 }
 
 private extension DateFormatter {

@@ -30,7 +30,7 @@ public struct ZIPFolder: Identifiable, Hashable, Equatable {
     public internal(set) var entries: [ZIPEntry] = []
     public internal(set) var subfolders: [Self] = []
     public internal(set) var size: Int64 = 0
-    public internal(set) var lastModificationDate: Date?
+    public internal(set) var lastModificationDate: Date = .msDOSReferenceDate
 }
 
 public extension [ZIPEntry] {
@@ -75,24 +75,12 @@ private extension ZIPFolder {
     }
     
     @discardableResult
-    mutating func findLastModificationDate() -> Date? {
-        let entriesDate = entries
-            .filter { entry in entry.fileLastModificationDate != nil }
-            .max { $0.fileLastModificationDate! < $1.fileLastModificationDate! }?
-            .fileLastModificationDate
+    mutating func findLastModificationDate() -> Date {
+        let entriesDate = (entries.max { $0.fileLastModificationDate < $1.fileLastModificationDate })?
+            .fileLastModificationDate ?? .msDOSReferenceDate
         
         let subfoldersDate = subfolders.lastModificationDate()
-        
-        var date: Date?
-        
-        if let entriesDate, let subfoldersDate {
-            date = entriesDate > subfoldersDate ? entriesDate : subfoldersDate
-        } else if let entriesDate {
-            date = entriesDate
-        } else if let subfoldersDate {
-            date = subfoldersDate
-        }
-        
+        let date = entriesDate > subfoldersDate ? entriesDate : subfoldersDate
         lastModificationDate = date
         return date
     }
@@ -154,18 +142,14 @@ private extension [ZIPFolder] {
         return size
     }
     
-    mutating func lastModificationDate() -> Date? {
-        var date: Date?
+    mutating func lastModificationDate() -> Date {
+        var date = Date.msDOSReferenceDate
         
         for index in 0..<count {
-            if let subfolderDate = self[index].findLastModificationDate() {
-                if let currentDate = date {
-                    if currentDate < subfolderDate {
-                        date = subfolderDate
-                    }
-                } else {
-                    date = subfolderDate
-                }
+            let subfolderDate = self[index].findLastModificationDate()
+            
+            if date < subfolderDate {
+                date = subfolderDate
             }
         }
         

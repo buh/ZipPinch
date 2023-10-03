@@ -111,9 +111,7 @@ struct ImagesView: View {
                 Spacer()
             }
             
-            if let lastModificationDate = folder.lastModificationDate {
-                Text("\(lastModificationDate, format: .dateTime)")
-            }
+            Text("\(folder.lastModificationDate, format: .dateTime)")
         }
         .foregroundColor(.secondary)
         .font(.footnote)
@@ -130,11 +128,9 @@ struct ImagesView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(entry.fileName)
                     
-                    if let fileLastModificationDate = entry.fileLastModificationDate {
-                        Text("\(fileLastModificationDate, format: .dateTime)")
-                            .foregroundColor(.secondary)
-                            .font(.footnote)
-                    }
+                    Text("\(entry.fileLastModificationDate, format: .dateTime)")
+                        .foregroundColor(.secondary)
+                        .font(.footnote)
                 }
                 
                 Spacer()
