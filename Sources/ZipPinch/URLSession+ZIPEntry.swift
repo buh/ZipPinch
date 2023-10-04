@@ -47,13 +47,14 @@ public extension URLSession {
     func zipEntryData(
         _ entry: ZIPEntry,
         from url: URL,
+        cachePolicy: URLRequest.CachePolicy = .reloadRevalidatingCacheData,
         delegate: URLSessionTaskDelegate? = nil,
         progress: ZIPProgress? = nil,
         decompressor: (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
     ) async throws -> Data {
         try await zipEntryData(
             entry,
-            for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData),
+            for: URLRequest(url: url, cachePolicy: cachePolicy),
             delegate: delegate,
             progress: progress,
             decompressor: decompressor
@@ -155,15 +156,18 @@ private extension URLSession {
         buffer.reserveCapacity(min(Int(length), bufferSize))
         
         for try await byte in asyncBytes {
-            try Task.checkCancellation()
             buffer.append(byte)
             
             if buffer.count >= bufferSize {
+                try Task.checkCancellation()
                 data.append(buffer)
                 buffer.removeAll(keepingCapacity: true)
                 progress.callback(Double(data.count) / Double(length))
+                await Task.yield()
             }
         }
+        
+        try Task.checkCancellation()
         
         if !buffer.isEmpty {
             data.append(buffer)

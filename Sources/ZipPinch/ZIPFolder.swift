@@ -32,6 +32,11 @@ public struct ZIPFolder: Identifiable, Hashable, Equatable {
     public internal(set) var compressedSize: Int64 = 0
     public internal(set) var uncompressedSize: Int64 = 0
     public internal(set) var lastModificationDate: Date = .msDOSReferenceDate
+    
+    /// Returns entries including subfolders.
+    public func allEntries() -> [ZIPEntry] {
+        entries + subfolders.reduce([]) { $0 + $1.allEntries() }
+    }
 }
 
 public extension [ZIPEntry] {
