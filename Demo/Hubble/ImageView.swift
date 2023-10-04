@@ -51,8 +51,12 @@ struct ImageView: View {
                     .symbolRenderingMode(.multicolor)
                     .padding(.horizontal)
             } else {
-                ProgressView(value: progress)
-                    .padding(.horizontal)
+                if progress < 1 {
+                    ProgressView(value: progress)
+                        .padding(.horizontal)
+                } else {
+                    Text("Decompressing...")
+                }
             }
         }
         .navigationTitle(entry?.fileName ?? "")
@@ -60,7 +64,7 @@ struct ImageView: View {
             guard let entry, let url else { return }
             
             do {
-                let data = try await URLSession(configuration: .ephemeral)
+                let data = try await URLSession(configuration: .default)
                     .zipEntryData(
                         entry,
                         from: url,
