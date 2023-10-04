@@ -1,45 +1,89 @@
 import SwiftUI
 
 struct ContentView: View {
-    
+    @AppStorage("customURLString") var storedCustomURLString = ""
+    @State private var customURL: URL?
+    @State private var customURLString = ""
+    @State private var showCustomURLTextField = false
     @State private var starsRotation = Angle.zero
     
     var body: some View {
         NavigationStack {
             ZStack {
                 stars()
+                
                 VStack(spacing: 20) {
                     Label("Hubble", systemImage: "bubbles.and.sparkles.fill")
                         .font(.largeTitle.bold())
                         .foregroundColor(.accentColor)
                         .shadow(color: Color.accentColor, radius: 20)
-                    
-                    Text("Top 100 Images")
                         .padding(.bottom)
-                        .foregroundColor(.secondary)
                     
-                    NavigationLink(destination: ImagesView(
-                        title: "Top 100 (Large)",
+                    imagesLink(
+                        title: "Top 100 large images",
+                        subtitle: "ZIP file 1.2 GB",
                         url: URL(string: "https://esahubble.org/static/images/zip/top100/top100-large.zip")!
-                    )) {
-                        Text("Large Size (ZIP file, 1.2Gb)")
-                            .bold()
-                            .font(.callout)
-                            .padding()
-                    }
-                    NavigationLink(destination: ImagesView(
-                        title: "Top 100 (Original)",
+                    )
+                    
+                    imagesLink(
+                        title: "Top 100 original images",
+                        subtitle: "ZIP file 4.7 GB",
                         url: URL(string: "https://esahubble.org/static/images/zip/top100/top100-original.zip")!
-                    )) {
-                        Text("Original Size (ZIP file, 4.7Gb)")
-                            .bold()
-                            .font(.callout)
-                            .padding()
+                    )
+                    
+                    Divider()
+                    
+                    if let customURL {
+                        imagesLink(
+                            title: customURL.lastPathComponent,
+                            subtitle: customURL.host() ?? "",
+                            url: customURL
+                        )
                     }
+                    
+                    Button("Try your ZIP-file URL") {
+                        customURLString = ""
+                        showCustomURLTextField = true
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
                 .buttonStyle(.bordered)
                 .padding(.bottom, 64)
             }
+        }
+        .task {
+            if !storedCustomURLString.isEmpty, let url = URL(string: storedCustomURLString) {
+                customURL = url
+            }
+        }
+        .alert("Enter your ZIP-file URL", isPresented: $showCustomURLTextField) {
+            TextField("https://...", text: $customURLString)
+            
+            Button("Cancel", role: .cancel) {
+                showCustomURLTextField = false
+            }
+            
+            Button("Add") {
+                if customURLString.hasPrefix("http"), let url = URL(string: customURLString) {
+                    storedCustomURLString = customURLString
+                    customURL = url
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func imagesLink(title: String, subtitle: String, url: URL) -> some View {
+        NavigationLink(destination: ImagesView(title: title, url: url)) {
+            VStack(spacing: 4) {
+                Text(title)
+                    .bold()
+                
+                Text(subtitle)
+                    .foregroundStyle(.secondary)
+                    .font(.callout)
+            }
+            .padding()
         }
     }
     
