@@ -87,7 +87,7 @@ struct ImagesView: View {
                 
                 Spacer()
                 
-                Text(ByteCountFormatter.appFormatter.string(fromByteCount: folder.size))
+                Text(ByteCountFormatter.appFormatter.string(fromByteCount: folder.compressedSize))
                     .foregroundColor(.secondary)
                     .font(.caption)
             }

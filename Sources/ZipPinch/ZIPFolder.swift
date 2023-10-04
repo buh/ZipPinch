@@ -29,7 +29,8 @@ public struct ZIPFolder: Identifiable, Hashable, Equatable {
     public let name: String
     public internal(set) var entries: [ZIPEntry] = []
     public internal(set) var subfolders: [Self] = []
-    public internal(set) var size: Int64 = 0
+    public internal(set) var compressedSize: Int64 = 0
+    public internal(set) var uncompressedSize: Int64 = 0
     public internal(set) var lastModificationDate: Date = .msDOSReferenceDate
 }
 
@@ -57,21 +58,28 @@ public extension [ZIPEntry] {
             }
             
             rootFolder.subfolders.appendEntry(entry, at: indices)
-            rootFolder.findLastModificationDate()
         }
         
-        rootFolder.calcSize()
+        rootFolder.calcSize(isCompressedSize: true)
+        rootFolder.calcSize(isCompressedSize: false)
+        rootFolder.findLastModificationDate()
         return rootFolder
     }
 }
 
 private extension ZIPFolder {
     @discardableResult
-    mutating func calcSize() -> Int64 {
-        let entriesSize = entries.reduce(0) { $0 + $1.compressedSize }
-        let subfoldersSize = subfolders.foldersSize()
-        size = entriesSize + subfoldersSize
-        return size
+    mutating func calcSize(isCompressedSize: Bool) -> Int64 {
+        let entriesSize = entries.reduce(0) { $0 + (isCompressedSize ? $1.compressedSize : $1.uncompressedSize) }
+        let subfoldersSize = subfolders.foldersSize(isCompressedSize: isCompressedSize)
+        
+        if isCompressedSize {
+            compressedSize = entriesSize + subfoldersSize
+        } else {
+            uncompressedSize = entriesSize + subfoldersSize
+        }
+        
+        return isCompressedSize ? compressedSize : uncompressedSize
     }
     
     @discardableResult
@@ -132,11 +140,11 @@ private extension [ZIPFolder] {
         }
     }
     
-    mutating func foldersSize() -> Int64 {
+    mutating func foldersSize(isCompressedSize: Bool) -> Int64 {
         var size: Int64 = 0
         
         for index in 0..<count {
-            size += self[index].calcSize()
+            size += self[index].calcSize(isCompressedSize: isCompressedSize)
         }
         
         return size
