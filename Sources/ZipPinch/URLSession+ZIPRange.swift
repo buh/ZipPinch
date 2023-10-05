@@ -85,22 +85,22 @@ public enum ZIPError: Error, Equatable {
     public var localizedDescription: String {
         switch self {
         case .badResponseStatusCode(let statusCode):
-            "The response was unsuccessful (Status Code: \(statusCode))."
+            return "The response was unsuccessful (Status Code: \(statusCode))."
         case .expectedContentLengthUnknown:
-            "The response does not contain a `Content-Length` header. "
+            return "The response does not contain a `Content-Length` header. "
             + "The server hosting the zip file must support the `Content-Length` header."
         case .contentLengthTooSmall:
-            "The size of the zip file is smaller than expected."
+            return "The size of the zip file is smaller than expected."
         case .centralDirectoryNotFound:
-            "No central directory information was found inside the zip file."
+            return "No central directory information was found inside the zip file."
         case .fileNotFound:
-            "The file inside the zip file is not found or its size is zero."
+            return "The file inside the zip file is not found or its size is zero."
         case .fileDataFailedToReceive:
-            "The file data failed to receive."
+            return "The file data failed to receive."
         case .receivedFileDataSizeSmall:
-            "The received file data size is too small."
+            return "The received file data size is too small."
         case .entryIsDirectory:
-            "The requested entry file data is a directory."
+            return "The requested entry file data is a directory."
         }
     }
 }
