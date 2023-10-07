@@ -16,7 +16,7 @@ Imagine that you need remote access to several files (different kinds of assets:
 
 It makes a request to a remote ZIP archive and returns its structure with the file size and date of file modification. Free hosting for your zip files is not hard to find. Files in an uncompressed archive will essentially be downloaded as is and no time will be spent on unzipping.
 
-<img src="https://github.com/buh/ZipPinch/assets/284922/5b86afd2-3875-41da-9842-53cbd6a7c285" width="375"/> <img src="https://github.com/buh/ZipPinch/assets/284922/89a0f65a-5973-4b2d-8fc7-d50a04c636e4" width="375"/>
+<img src="https://github.com/buh/ZipPinch/assets/284922/7798de6e-6dc1-455d-befb-6b6a33954180" width="375"/> <img src="https://github.com/buh/ZipPinch/assets/284922/b94f1e0d-c13e-43f0-aeac-740f18ba9569" width="375"/>
 
 *Screenshots from the Demo app: Hubble*
 
