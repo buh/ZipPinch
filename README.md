@@ -59,6 +59,18 @@ let data = try await urlSession.zipEntryData(entry, from: url)
 
 Check out the Hubble demo app to view selected images from the archive taken by [The Hubble Space Telescope](https://esahubble.org).
 
+## Download with progress
+
+To download with showing the progress, a `ZIPProgress` object must be specified:
+
+```swift
+let data = try await urlSession.zipEntryData(entry, from: url, progress: .init() { progressValue in
+    Task { @MainActor in
+        self.progress = progressValue
+    }
+})
+```
+
 ## Download folder
 
 1. Converting entries to a tree hierarchy with folders and enrties:
@@ -69,6 +81,14 @@ let rootFolder = entries.rootFolder()
 2. Recursively load folder and subfolder entries:
 ```swift
 let folderData: [(ZIPEntry, Data)] = try await urlSession.zipFolderData(folder, from: url)
+```
+3. The same, but with the overall progress:
+```swift
+let folderData: [(ZIPEntry, Data)] = try await urlSession.zipFolderData(folder, from: url, progress: .init() { progressValue in
+    Task { @MainActor in
+        self.progress = progressValue
+    }
+})
 ```
 
 # Features
