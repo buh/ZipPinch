@@ -16,7 +16,7 @@ Imagine that you need remote access to several files (different kinds of assets:
 
 It makes a request to a remote ZIP archive and returns its structure with the file size and date of file modification. Free hosting for your zip files is not hard to find. Files in an uncompressed archive will essentially be downloaded as is and no time will be spent on unzipping.
 
-<img src="https://github.com/buh/ZipPinch/assets/284922/316c0139-9abf-4bd9-aa8e-dcd3ac48501f" width="375"/> <img src="https://github.com/buh/ZipPinch/assets/284922/9e06fb2f-1be3-476a-84eb-f58ed1e75c90" width="375"/>
+<img src="https://github.com/buh/ZipPinch/assets/284922/5b86afd2-3875-41da-9842-53cbd6a7c285" width="375"/> <img src="https://github.com/buh/ZipPinch/assets/284922/89a0f65a-5973-4b2d-8fc7-d50a04c636e4" width="375"/>
 
 *Screenshots from the Demo app: Hubble*
 
@@ -37,23 +37,19 @@ https://github.com/buh/ZipPinch.git
 3. Select to which target you want to add it and select `Add Package`
 
 # Usage
+## Getting started
 
-1. First you need to create an instance of `URLSession`. 
-
-```swift
-let urlSession = URLSession(configuration: .ephemeral)
-```
-
-Then make a request for the contents via a direct `URL` to your ZIP file.
+1. First you need to create an instance of `URLSession`.  Then make a request for the contents via a direct `URL` to your ZIP file.
 
 ```swift
+let urlSession = URLSession(configuration: .default)
 let entries = try await urlSession.zipEntries(from: url)
 ```
 
 > [!NOTE]
 > You can also add a `URLSessionTaskDelegate` or use a customised `URLRequest`.
 
-2. Then when you have selected the necessary entry to download, you need to make the following request:
+2. Download the data of an entry:
 
 ```swift
 let data = try await urlSession.zipEntryData(entry, from: url)
@@ -63,6 +59,18 @@ let data = try await urlSession.zipEntryData(entry, from: url)
 
 Check out the Hubble demo app to view selected images from the archive taken by [The Hubble Space Telescope](https://esahubble.org).
 
+## Download folder
+
+1. Converting entries to a tree hierarchy with folders and enrties:
+```swift
+let entries = try await urlSession.zipEntries(from: url)
+let rootFolder = entries.rootFolder()
+```
+2. Recursively load folder and subfolder entries:
+```swift
+let folderData: [(ZIPEntry, Data)] = try await urlSession.zipFolderData(folder, from: url)
+```
+
 # Features
 - [x] Custom `URLRequest`
 - [x] Task management with `URLSessionTaskDelegate`
@@ -70,8 +78,8 @@ Check out the Hubble demo app to view selected images from the archive taken by 
 - [x] ZIP 64-bit support
 - [x] Tracking the downloading progress
 - [x] Demo for iPhone/iPad/macOS.
-- [ ] ZIP entries as a tree of Folders/Files.
-- [ ] Dowload a folder.
+- [x] ZIP entries as a tree of Folders/Files.
+- [x] Dowload a folder.
 
 # ZIP file format specification sources
 - [Wikipedia](http://en.wikipedia.org/wiki/ZIP_(file_format)#File_headers)
