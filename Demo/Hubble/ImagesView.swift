@@ -6,6 +6,8 @@ struct ImagesView: View {
     let title: String
     let url: URL
     private let urlSession = URLSession(configuration: .default)
+    @AppStorage("storedContentLength") var storedContentLength = 0
+    @AppStorage("storedEntriesJSON") var storedEntriesJSON = ""
     @State private var entries = [ZIPEntry]()
     @State private var rootFolder: ZIPFolder
     @State private var hoveredEntry: ZIPEntry?
@@ -40,20 +42,7 @@ struct ImagesView: View {
         #endif
         .task { @MainActor in
             guard entries.isEmpty, rootFolder == .empty else { return }
-            
-            do {
-                isLoading = true
-                entries = try await urlSession.zipEntries(from: url)
-                rootFolder = entries.rootFolder()
-            } catch let zipError as ZIPError {
-                self.error = zipError.localizedDescription
-                print("💥 ImagesView:", zipError)
-            } catch {
-                self.error = error.localizedDescription
-                print("💥 ImagesView:", error)
-            }
-            
-            isLoading = false
+            await loadEntries()
         }
     }
     
@@ -193,6 +182,68 @@ struct ImagesView: View {
             }
             #endif
         }
+    }
+}
+
+private extension ImagesView {
+    func loadEntries() async {
+        do {
+            isLoading = true
+            
+            let contentLength = try await urlSession.zipContentLength(
+                from: url,
+                cachePolicy: .returnCacheDataElseLoad
+            )
+            
+            if contentLength == storedContentLength, !storedEntriesJSON.isEmpty {
+                let entries = [ZIPEntry].decodeFromString(storedEntriesJSON)
+                
+                if !entries.isEmpty {
+                    self.entries = entries
+                    rootFolder = entries.rootFolder()
+                    isLoading = false
+                    print("📀 Returned cached entries: ", entries.count)
+                    return
+                }
+            }
+            
+            entries = try await urlSession.zipEntries(
+                from: url,
+                contentLength: contentLength,
+                cachePolicy: .returnCacheDataElseLoad
+            )
+            
+            rootFolder = entries.rootFolder()
+            cacheEntries(contentLength: Int(contentLength))
+            
+        } catch let zipError as ZIPError {
+            self.error = zipError.localizedDescription
+            print("💥 ImagesView:", zipError)
+        } catch {
+            self.error = error.localizedDescription
+            print("💥 ImagesView:", error)
+        }
+        
+        isLoading = false
+    }
+    
+    private func cacheEntries(contentLength: Int) {
+        guard let json = try? entries.encodeToString(), !json.isEmpty else { return }
+        
+        storedEntriesJSON = json
+        storedContentLength = contentLength
+    }
+}
+
+private extension [ZIPEntry] {
+    func encodeToString() throws -> String {
+        let jsonData = try JSONEncoder().encode(self)
+        return String(data: jsonData, encoding: .utf8) ?? ""
+    }
+    
+    static func decodeFromString(_ json: String) -> [ZIPEntry] {
+        guard let data = json.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([ZIPEntry].self, from: data)) ?? []
     }
 }
 
