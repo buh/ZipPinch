@@ -53,8 +53,7 @@ extension URLSession {
 extension URLResponse {
     func checkStatusCodeOK() throws {
         let httpStatusCode = (self as? HTTPURLResponse)?.statusCode ?? 0
-        
-        guard 200..<300 ~= httpStatusCode else {
+        guard 200..<300 ~= httpStatusCode || httpStatusCode == 304 else {
             throw ZIPError.badResponseStatusCode(httpStatusCode)
         }
     }
