@@ -24,8 +24,12 @@ import Foundation
 
 extension URLSession {
     /// Retrieves the ZIP entries.
-    public func zipEntries(from url: URL, delegate: URLSessionTaskDelegate? = nil) async throws -> [ZIPEntry] {
-        try await zipEntries(for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData), delegate: delegate)
+    public func zipEntries(
+        from url: URL,
+        cachePolicy: URLRequest.CachePolicy = .reloadRevalidatingCacheData,
+        delegate: URLSessionTaskDelegate? = nil
+    ) async throws -> [ZIPEntry] {
+        try await zipEntries(for: URLRequest(url: url, cachePolicy: cachePolicy), delegate: delegate)
     }
     
     /// Retrieves the ZIP entries.
@@ -33,6 +37,28 @@ extension URLSession {
         for request: URLRequest,
         delegate: URLSessionTaskDelegate? = nil
     ) async throws -> [ZIPEntry] {
+        let zipContentLength = try await zipContentLength(for: request, delegate: delegate)
+        return try await zipEntries(for: request, contentLength: zipContentLength, delegate: delegate)
+    }
+    
+    /// Retrieves the ZIP content length.
+    ///
+    /// To have the zip file content length is useful for caching requests.
+    public func zipContentLength(
+        from url: URL,
+        cachePolicy: URLRequest.CachePolicy = .reloadRevalidatingCacheData,
+        delegate: URLSessionTaskDelegate? = nil
+    ) async throws -> Int64 {
+        try await zipContentLength(for: .init(url: url, cachePolicy: cachePolicy), delegate: delegate)
+    }
+    
+    /// Retrieves the ZIP content length.
+    ///
+    /// To have the zip file content length is useful for caching requests.
+    public func zipContentLength(
+        for request: URLRequest,
+        delegate: URLSessionTaskDelegate? = nil
+    ) async throws -> Int64 {
         var headRequest = request
         headRequest.httpMethod = "HEAD"
         headRequest.setValue("None", forHTTPHeaderField: "Accept-Encoding")
@@ -48,19 +74,44 @@ extension URLSession {
             throw ZIPError.contentLengthTooSmall
         }
         
+        return response.expectedContentLength
+    }
+    
+    /// Retrieves the ZIP entries with a known length of the zip file contents.
+    public func zipEntries(
+        from url: URL,
+        contentLength: Int64,
+        cachePolicy: URLRequest.CachePolicy = .reloadRevalidatingCacheData,
+        delegate: URLSessionTaskDelegate? = nil
+    ) async throws -> [ZIPEntry] {
+        try await zipEntries(
+            for: .init(url: url, cachePolicy: cachePolicy),
+            contentLength: contentLength,
+            delegate: delegate
+        )
+    }
+    
+    /// Retrieves the ZIP entries with a known length of the zip file contents.
+    public func zipEntries(
+        for request: URLRequest,
+        contentLength: Int64,
+        delegate: URLSessionTaskDelegate? = nil
+    ) async throws -> [ZIPEntry] {
         let entries: [ZIPEntry]
         
-        if response.expectedContentLength > 0xffffffff {
+        // If the file size is more then 4 GB,
+        // then the zip was encoded as 64 bit version.
+        if contentLength > 0xffffffff {
             entries = try await findCentralDirectory(
                 for: request,
-                contentLength: response.expectedContentLength,
+                contentLength: contentLength,
                 endRecordType: ZIPEndRecord64.self,
                 delegate: delegate
             )
         } else {
             entries = try await findCentralDirectory(
                 for: request,
-                contentLength: response.expectedContentLength,
+                contentLength: contentLength,
                 endRecordType: ZIPEndRecord.self,
                 delegate: delegate
             )
