@@ -49,15 +49,13 @@ public extension URLSession {
         from url: URL,
         cachePolicy: URLRequest.CachePolicy = .reloadRevalidatingCacheData,
         delegate: URLSessionTaskDelegate? = nil,
-        progress: ZIPProgress? = nil,
-        decompressor: (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
+        progress: ZIPProgress? = nil
     ) async throws -> Data {
         try await zipEntryData(
             entry,
             for: URLRequest(url: url, cachePolicy: cachePolicy),
             delegate: delegate,
-            progress: progress,
-            decompressor: decompressor
+            progress: progress
         )
     }
     
@@ -66,8 +64,7 @@ public extension URLSession {
         _ entry: ZIPEntry,
         for request: URLRequest,
         delegate: URLSessionTaskDelegate? = nil,
-        progress: ZIPProgress? = nil,
-        decompressor: (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
+        progress: ZIPProgress? = nil
     ) async throws -> Data {
         guard !entry.isDirectory else {
             throw ZIPError.entryIsDirectory
@@ -124,7 +121,7 @@ public extension URLSession {
         if fileHeader.compressionMethod == 0 {
             decompressedData = compressedData
         } else {
-            decompressedData = try decompressor(compressedData)
+            decompressedData = try ZIPEntry.decompress(compressedData)
         }
         
         return Data(referencing: decompressedData)

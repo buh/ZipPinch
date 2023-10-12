@@ -29,15 +29,13 @@ public extension URLSession {
         from url: URL,
         cachePolicy: URLRequest.CachePolicy = .reloadRevalidatingCacheData,
         delegate: URLSessionTaskDelegate? = nil,
-        progress: ZIPProgress? = nil,
-        decompressor: @escaping (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
+        progress: ZIPProgress? = nil
     ) async throws -> [(entry: ZIPEntry, data: Data)] {
         try await zipFolderData(
             folder,
             for: URLRequest(url: url, cachePolicy: cachePolicy),
             delegate: delegate,
-            progress: progress,
-            decompressor: decompressor
+            progress: progress
         )
     }
     
@@ -46,15 +44,13 @@ public extension URLSession {
         _ folder: ZIPFolder,
         for request: URLRequest,
         delegate: URLSessionTaskDelegate? = nil,
-        progress: ZIPProgress? = nil,
-        decompressor: @escaping (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
+        progress: ZIPProgress? = nil
     ) async throws -> [(entry: ZIPEntry, data: Data)] {
         try await zipEntriesData(
             folder.allEntries(),
             for: request,
             delegate: delegate,
-            progress: progress,
-            decompressor: decompressor
+            progress: progress
         )
     }
     
@@ -64,15 +60,13 @@ public extension URLSession {
         from url: URL,
         cachePolicy: URLRequest.CachePolicy = .reloadRevalidatingCacheData,
         delegate: URLSessionTaskDelegate? = nil,
-        progress: ZIPProgress? = nil,
-        decompressor: @escaping (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
+        progress: ZIPProgress? = nil
     ) async throws -> [(entry: ZIPEntry, data: Data)] {
         try await zipEntriesData(
             entries,
             for: URLRequest(url: url, cachePolicy: cachePolicy),
             delegate: delegate,
-            progress: progress,
-            decompressor: decompressor
+            progress: progress
         )
     }
     
@@ -81,8 +75,7 @@ public extension URLSession {
         _ entries: [ZIPEntry],
         for request: URLRequest,
         delegate: URLSessionTaskDelegate? = nil,
-        progress: ZIPProgress? = nil,
-        decompressor: @escaping (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
+        progress: ZIPProgress? = nil
     ) async throws -> [(entry: ZIPEntry, data: Data)] {
         try await withThrowingTaskGroup(of: (entry: ZIPEntry, data: Data).self) { taskGroup in
             let overallProgress = OverallProgress(count: Double(entries.count))
@@ -104,8 +97,7 @@ public extension URLSession {
                         entry,
                         for: request,
                         delegate: delegate,
-                        progress: progressPerEntry,
-                        decompressor: decompressor
+                        progress: progressPerEntry
                     ))
                 }
             }
