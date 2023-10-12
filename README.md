@@ -80,11 +80,13 @@ let rootFolder = entries.rootFolder()
 ```
 2. Recursively load folder and subfolder entries:
 ```swift
-let folderData: [(ZIPEntry, Data)] = try await urlSession.zipFolderData(folder, from: url)
+// folderData: [(entry: ZIPEntry, data: Data)]
+let folderData = try await urlSession.zipFolderData(folder, from: url)
 ```
 3. The same, but with the overall progress:
 ```swift
-let folderData: [(ZIPEntry, Data)] = try await urlSession.zipFolderData(folder, from: url, progress: .init() { progressValue in
+// folderData: [(entry: ZIPEntry, data: Data)]
+let folderData = try await urlSession.zipFolderData(folder, from: url, progress: .init() { progressValue in
     Task { @MainActor in
         self.progress = progressValue
     }

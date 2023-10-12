@@ -31,7 +31,7 @@ public extension URLSession {
         delegate: URLSessionTaskDelegate? = nil,
         progress: ZIPProgress? = nil,
         decompressor: @escaping (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
-    ) async throws -> [(ZIPEntry, Data)] {
+    ) async throws -> [(entry: ZIPEntry, data: Data)] {
         try await zipFolderData(
             folder,
             for: URLRequest(url: url, cachePolicy: cachePolicy),
@@ -48,7 +48,7 @@ public extension URLSession {
         delegate: URLSessionTaskDelegate? = nil,
         progress: ZIPProgress? = nil,
         decompressor: @escaping (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
-    ) async throws -> [(ZIPEntry, Data)] {
+    ) async throws -> [(entry: ZIPEntry, data: Data)] {
         try await zipEntriesData(
             folder.allEntries(),
             for: request,
@@ -66,7 +66,7 @@ public extension URLSession {
         delegate: URLSessionTaskDelegate? = nil,
         progress: ZIPProgress? = nil,
         decompressor: @escaping (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
-    ) async throws -> [(ZIPEntry, Data)] {
+    ) async throws -> [(entry: ZIPEntry, data: Data)] {
         try await zipEntriesData(
             entries,
             for: URLRequest(url: url, cachePolicy: cachePolicy),
@@ -83,8 +83,8 @@ public extension URLSession {
         delegate: URLSessionTaskDelegate? = nil,
         progress: ZIPProgress? = nil,
         decompressor: @escaping (_ compressedData: NSData) throws -> NSData = { try $0.decompressed(using: .zlib) }
-    ) async throws -> [(ZIPEntry, Data)] {
-        try await withThrowingTaskGroup(of: (ZIPEntry, Data).self) { taskGroup in
+    ) async throws -> [(entry: ZIPEntry, data: Data)] {
+        try await withThrowingTaskGroup(of: (entry: ZIPEntry, data: Data).self) { taskGroup in
             let overallProgress = OverallProgress(count: Double(entries.count))
             
             for entry in entries {
@@ -110,7 +110,7 @@ public extension URLSession {
                 }
             }
             
-            return try await taskGroup.reduce(into: [(ZIPEntry, Data)]()) { partialResult, value in
+            return try await taskGroup.reduce(into: [(entry: ZIPEntry, data: Data)]()) { partialResult, value in
                 partialResult.append(value)
             }
         }
