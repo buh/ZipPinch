@@ -30,13 +30,13 @@ public struct ZIPProgress {
     public let bufferSize: Int
     
     /// Callback progress with a value between 0 and 1.
-    public let callback: (Double) -> Void
+    public let callback: @Sendable (Double) -> Void
     
     /// Creates the progress container.
     /// - Parameters:
     ///   - bufferSize: the number of bytes of the buffer (64 Kb by default).
     ///   - callback: the callback progress with a value between 0 and 1.
-    public init(bufferSize: Int = 0xffff, callback: @escaping (Double) -> Void) {
+    public init(bufferSize: Int = 0xffff, callback: @Sendable @escaping (Double) -> Void) {
         self.bufferSize = bufferSize
         self.callback = callback
     }
