@@ -22,7 +22,7 @@
 
 import Foundation
 
-protocol ZIPEndRecordProtocol {
+protocol ZIPEndRecordType {
     static var size: Int64 { get }
     static var signature: [Int8]  { get }
     var isZIP64: Bool { get }
@@ -32,7 +32,7 @@ protocol ZIPEndRecordProtocol {
     init(dataPointer: UnsafeRawPointer)
 }
 
-struct ZIPEndRecord: ZIPEndRecordProtocol {
+struct ZIPEndRecord: ZIPEndRecordType {
     static let size: Int64 = 4096
     static let signature: [Int8] = [0x50, 0x4b, 0x05, 0x06]
     let isZIP64 = false
@@ -64,7 +64,7 @@ struct ZIPEndRecord: ZIPEndRecordProtocol {
     }
 }
 
-struct ZIPEndRecord64: ZIPEndRecordProtocol {
+struct ZIPEndRecord64: ZIPEndRecordType {
     static let size: Int64 = 4096
     static let signature: [Int8] = [0x50, 0x4b, 0x06, 0x06]
     let isZIP64 = true

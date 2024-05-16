@@ -124,7 +124,7 @@ extension URLSession {
 // MARK: - Extracting ZIP Entries
 
 private extension URLSession {
-    func findCentralDirectory<T: ZIPEndRecordProtocol>(
+    func findCentralDirectory<T: ZIPEndRecordType>(
         for request: URLRequest,
         contentLength: Int64,
         endRecordType: T.Type,
@@ -166,7 +166,7 @@ private extension URLSession {
     
     func parseCentralDirectory(
         for request: URLRequest,
-        endRecord: some ZIPEndRecordProtocol,
+        endRecord: some ZIPEndRecordType,
         delegate: URLSessionTaskDelegate?
     ) async throws -> [ZIPEntry] {
         let directoryRecordData = try await rangedData(
