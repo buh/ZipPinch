@@ -9,7 +9,7 @@ let package = Package(
         .library(name: "ZipPinch", targets: ["ZipPinch"]),
     ],
     targets: [
-        .target(name: "ZipPinch"),
+        .target(name: "ZipPinch", resources: [.process("PrivacyInfo.xcprivacy")]),
         .testTarget(name: "ZipPinchTests", dependencies: ["ZipPinch"]),
     ]
 )
