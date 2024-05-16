@@ -121,7 +121,7 @@ public extension URLSession {
         if fileHeader.compressionMethod == 0 {
             decompressedData = compressedData
         } else {
-            decompressedData = try ZIPEntry.decompress(compressedData)
+            decompressedData = try ZIPDecompressor.decompress(compressedData)
         }
         
         return Data(referencing: decompressedData)

@@ -29,11 +29,6 @@ import Foundation
 
 /// The ZIP entry.
 public struct ZIPEntry: Identifiable, Hashable, Codable {
-    /// Decompressor.
-    public static var decompress: @Sendable (_ compressedData: NSData) throws -> NSData = {
-        try $0.decompressed(using: .zlib)
-    }
-    
     public let id: String
     
     /// The path to a file or directory.
