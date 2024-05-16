@@ -189,7 +189,11 @@ private extension URLSession {
             )
             
             if let filePath {
-                let entry = ZIPEntry(filePath: String(filePath), directoryRecord: directoryRecord)
+                let entry = ZIPEntry(
+                    filePath: String(filePath),
+                    directoryRecord: directoryRecord,
+                    isZIP64: endRecord is ZIPEndRecord64
+                )
                 entries.append(entry)
             }
             
