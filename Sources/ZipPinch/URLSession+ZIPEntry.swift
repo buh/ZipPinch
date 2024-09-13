@@ -99,21 +99,27 @@ public extension URLSession {
             throw ZIPError.fileDataFailedToReceive
         }
         
-        let fileHeaderData = NSData(data: receivedData)
+        let fileData = NSData(data: receivedData)
         
-        guard fileHeaderData.count > 0 else {
+        guard fileData.count > 0 else {
             throw ZIPError.fileNotFound
         }
         
-        let fileHeader = ZIPFileHeader(dataPointer: fileHeaderData.bytes)
+        let fileHeader = ZIPFileHeader(dataPointer: fileData.bytes)
         
         guard receivedData.count >= entry.compressedSize else {
             throw ZIPError.receivedFileDataSizeSmall
         }
         
+        var dataOffset = fileHeader.dataOffset
+        
+        if entry.isZIP64 {
+            //
+        }
+        
         let compressedData = NSData(
-            bytes: fileHeaderData.bytes.advanced(by: fileHeader.dataOffset),
-            length: fileHeaderData.count - fileHeader.dataOffset
+            bytes: fileData.bytes.advanced(by: fileHeader.dataOffset),
+            length: fileData.count - fileHeader.dataOffset
         )
         
         let decompressedData: NSData
