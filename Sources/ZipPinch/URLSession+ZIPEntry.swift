@@ -107,19 +107,31 @@ public extension URLSession {
         
         let fileHeader = ZIPFileHeader(dataPointer: fileData.bytes)
         
-        guard receivedData.count >= entry.compressedSize else {
-            throw ZIPError.receivedFileDataSizeSmall
-        }
-        
+        // Calculate actual data offset, considering ZIP64 extended info if present
         var dataOffset = fileHeader.dataOffset
         
         if entry.isZIP64 {
-            //
+            // Parse extra fields in local file header to find ZIP64 extended info
+            let extraFieldStart = fileData.bytes.advanced(by: ZIPFileHeader.sizeBytes + Int(fileHeader.fileNameLength))
+            let extraFieldData = Data(bytes: extraFieldStart, count: Int(fileHeader.extraFieldLength))
+            
+            if parseZIP64LocalFileExtendedInfo(extraFieldData: extraFieldData, fileHeader: fileHeader) != nil {
+                // Recalculate data offset if ZIP64 extended info is present
+                dataOffset = ZIPFileHeader.sizeBytes + Int(fileHeader.fileNameLength) + Int(fileHeader.extraFieldLength)
+            }
+        }
+        
+        // Ensure we have enough data for the compressed file
+        let remainingDataSize = receivedData.count - dataOffset
+        let expectedCompressedSize = Int(entry.compressedSize)
+        
+        guard remainingDataSize >= expectedCompressedSize else {
+            throw ZIPError.receivedFileDataSizeSmall
         }
         
         let compressedData = NSData(
-            bytes: fileData.bytes.advanced(by: fileHeader.dataOffset),
-            length: fileData.count - fileHeader.dataOffset
+            bytes: fileData.bytes.advanced(by: dataOffset),
+            length: expectedCompressedSize
         )
         
         let decompressedData: NSData
@@ -179,4 +191,62 @@ private extension URLSession {
         
         return data
     }
+    
+    func parseZIP64LocalFileExtendedInfo(
+        extraFieldData: Data,
+        fileHeader: ZIPFileHeader
+    ) -> ZIP64LocalFileExtendedInfo? {
+        guard extraFieldData.count >= 4 else { return nil }
+        
+        return extraFieldData.withUnsafeBytes { bytes in
+            var offset = 0
+            let basePointer = bytes.bindMemory(to: UInt8.self).baseAddress!
+            
+            while offset + 4 <= bytes.count {
+                let headerID = UInt16(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt16.self, capacity: 1) { $0.pointee })
+                let dataSize = UInt16(littleEndian: basePointer.advanced(by: offset + 2).withMemoryRebound(to: UInt16.self, capacity: 1) { $0.pointee })
+                
+                if headerID == 0x0001 { // ZIP64 Extended Information Extra Field
+                    return parseZIP64LocalFileExtendedInfoField(
+                        data: Data(bytes: basePointer.advanced(by: offset + 4), count: Int(dataSize)),
+                        fileHeader: fileHeader
+                    )
+                }
+                
+                offset += 4 + Int(dataSize)
+            }
+            
+            return nil
+        }
+    }
+    
+    func parseZIP64LocalFileExtendedInfoField(
+        data: Data,
+        fileHeader: ZIPFileHeader
+    ) -> ZIP64LocalFileExtendedInfo {
+        var info = ZIP64LocalFileExtendedInfo()
+        
+        data.withUnsafeBytes { bytes in
+            var offset = 0
+            let basePointer = bytes.bindMemory(to: UInt8.self).baseAddress!
+            
+            // Parse fields in the order they appear, only if the corresponding 32-bit field is 0xFFFFFFFF
+            if fileHeader.uncompressedSize == 0xFFFFFFFF && offset + 8 <= data.count {
+                info.uncompressedSize = UInt64(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt64.self, capacity: 1) { $0.pointee })
+                offset += 8
+            }
+            
+            if fileHeader.compressedSize == 0xFFFFFFFF && offset + 8 <= data.count {
+                info.compressedSize = UInt64(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt64.self, capacity: 1) { $0.pointee })
+                offset += 8
+            }
+        }
+        
+        return info
+    }
+}
+
+struct ZIP64LocalFileExtendedInfo {
+    var uncompressedSize: UInt64?
+    var compressedSize: UInt64?
 }

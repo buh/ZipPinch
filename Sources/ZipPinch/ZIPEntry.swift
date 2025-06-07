@@ -35,9 +35,29 @@ public struct ZIPEntry: Identifiable, Hashable, Codable {
     public let filePath: String
     public let fileName: String
     let directoryRecord: ZIPDirectoryRecord
+    let zip64Info: ZIP64ExtendedInfo?
     
-    public var compressedSize: Int64 { Int64(directoryRecord.compressedSize) }
-    public var uncompressedSize: Int64 { Int64(directoryRecord.uncompressedSize) }
+    // Use ZIP64 values if available, otherwise fall back to 32-bit values
+    public var compressedSize: Int64 {
+        if let zip64CompressedSize = zip64Info?.compressedSize {
+            return Int64(zip64CompressedSize)
+        }
+        return Int64(directoryRecord.compressedSize)
+    }
+    
+    public var uncompressedSize: Int64 {
+        if let zip64UncompressedSize = zip64Info?.uncompressedSize {
+            return Int64(zip64UncompressedSize)
+        }
+        return Int64(directoryRecord.uncompressedSize)
+    }
+    
+    var relativeOffsetOfLocalFileHeader: Int64 {
+        if let zip64Offset = zip64Info?.relativeOffsetOfLocalFileHeader {
+            return Int64(zip64Offset)
+        }
+        return Int64(directoryRecord.relativeOffsetOfLocalFileHeader)
+    }
     
     public var fileLastModificationDate: Date {
         guard directoryRecord.fileLastModificationDate != 0 else { return .msDOSReferenceDate }
@@ -51,25 +71,31 @@ public struct ZIPEntry: Identifiable, Hashable, Codable {
     /// Checks if the path is directory or not.
     public var isDirectory: Bool { filePath.last == "/" }
     
-    var length: Int {
-        MemoryLayout<ZIPFileHeader>.size
-            + Int(directoryRecord.compressedSize)
-            + Int(directoryRecord.fileNameLength + directoryRecord.extraFieldLength)
+    var length: Int64 {
+        Int64(MemoryLayout<ZIPFileHeader>.size) + compressedSize +
+        Int64(directoryRecord.fileNameLength + directoryRecord.extraFieldLength)
     }
     
     var fileRange: ClosedRange<Int64> {
-        Int64(directoryRecord.relativeOffsetOfLocalFileHeader)
-        // The 16 extra bytes is because the extraFieldLength is sometimes different
+        relativeOffsetOfLocalFileHeader
+        // The 64 extra bytes is because the extraFieldLength is sometimes different
         // from the length of the centralDirectory and fileEntry header.
-        ... (Int64(directoryRecord.relativeOffsetOfLocalFileHeader) + Int64(length) + 16)
+        // For ZIP64, we need more buffer space
+        ... (relativeOffsetOfLocalFileHeader + length + (isZIP64 ? 64 : 16))
     }
     
     var isZIP64: Bool
     
-    init(filePath: String, directoryRecord: ZIPDirectoryRecord, isZIP64: Bool) {
+    init(
+        filePath: String,
+        directoryRecord: ZIPDirectoryRecord,
+        isZIP64: Bool,
+        zip64Info: ZIP64ExtendedInfo? = nil
+    ) {
         id = filePath
         self.filePath = filePath
         self.isZIP64 = isZIP64
+        self.zip64Info = zip64Info
         
         if filePath.hasSuffix("/") {
             fileName = ""

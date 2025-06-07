@@ -66,6 +66,7 @@ struct ZIPEndRecord: ZIPEndRecordType {
 
 struct ZIPEndRecord64: ZIPEndRecordType {
     static let size: Int64 = 4096
+    static let fixedSize: Int64 = 56 // Fixed part without extensible data sector
     static let signature: [Int8] = [0x50, 0x4b, 0x06, 0x06]
     let isZIP64 = true
     

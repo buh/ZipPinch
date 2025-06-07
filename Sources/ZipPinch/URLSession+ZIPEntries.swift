@@ -97,76 +97,131 @@ extension URLSession {
         contentLength: Int64,
         delegate: URLSessionTaskDelegate? = nil
     ) async throws -> [ZIPEntry] {
-        let entries: [ZIPEntry]
+        // First, always try to find the regular End of Central Directory Record
+        // This will tell us if we need to look for ZIP64 structures
+        let result = try await findEndOfCentralDirectory(
+            for: request,
+            contentLength: contentLength,
+            delegate: delegate
+        )
         
-        // If the file size is more then 4 GB,
-        // then the zip was encoded as 64 bit version.
-        if contentLength > 0xffffffff {
-            entries = try await findCentralDirectory(
-                for: request,
-                contentLength: contentLength,
-                endRecordType: ZIPEndRecord64.self,
-                delegate: delegate
-            )
-        } else {
-            entries = try await findCentralDirectory(
-                for: request,
-                contentLength: contentLength,
-                endRecordType: ZIPEndRecord.self,
-                delegate: delegate
-            )
-        }
-        
-        return entries
+        return try await parseCentralDirectory(
+            for: request,
+            endRecord: result.endRecord,
+            isZIP64: result.isZIP64,
+            delegate: delegate
+        )
     }
 }
 
 // MARK: - Extracting ZIP Entries
 
 private extension URLSession {
-    func findCentralDirectory<T: ZIPEndRecordType>(
+    
+    struct EndOfCentralDirectoryResult {
+        let endRecord: any ZIPEndRecordType
+        let isZIP64: Bool
+    }
+    
+    func findEndOfCentralDirectory(
         for request: URLRequest,
         contentLength: Int64,
-        endRecordType: T.Type,
         delegate: URLSessionTaskDelegate?
-    ) async throws -> [ZIPEntry] {
+    ) async throws -> EndOfCentralDirectoryResult {
+        // Read the last portion of the file to find End of Central Directory Record
+        let searchSize = min(contentLength, 65557) // Max comment size + EOCD size + safety margin
         let endRecordData = try await rangedData(
             for: request,
-            bytesRange: (contentLength - endRecordType.size) ... contentLength,
+            bytesRange: (contentLength - searchSize) ... (contentLength - 1),
             delegate: delegate
         )
         
-        var length = endRecordData.count
-        var currentPointer = NSData(data: endRecordData).bytes
-        var foundPointer: UnsafeRawPointer?
-        
-        repeat {
-            guard let filePointer = memchr(currentPointer, 0x50, length) else { break }
-            
-            if memcmp(endRecordType.signature, filePointer, 4) == 0 {
-                foundPointer = UnsafeRawPointer(filePointer)
-            }
-            
-            length -= (Int(bitPattern: filePointer) - Int(bitPattern: currentPointer)) - 1
-            
-            if let p = UnsafeRawPointer(bitPattern: Int(bitPattern: filePointer) + 1) {
-                currentPointer = p
-            } else {
-                break
-            }
-        } while true
-        
-        guard let foundPointer else {
+        // Find the regular End of Central Directory Record first
+        guard let regularEOCDPointer = findEndOfCentralDirectorySignature(
+            in: endRecordData,
+            signature: ZIPEndRecord.signature
+        ) else {
             throw ZIPError.centralDirectoryNotFound
         }
         
-        let endRecord = endRecordType.init(dataPointer: foundPointer)
-        return try await parseCentralDirectory(for: request, endRecord: endRecord, delegate: delegate)
+        let regularEOCD = ZIPEndRecord(dataPointer: regularEOCDPointer)
+        
+        // Check if this is a ZIP64 archive by looking for 0xFFFFFFFF markers
+        let isZIP64 = regularEOCD.numberOfThisDisk == 0xFFFF ||
+                     regularEOCD.diskWhereCentralDirectoryStarts == 0xFFFF ||
+                     regularEOCD.numberOfCentralDirectoryRecordsOnThisDisk == 0xFFFF ||
+                     regularEOCD.totalNumberOfCentralDirectoryRecords == 0xFFFF ||
+                     regularEOCD.sizeOfCentralDirectory == 0xFFFFFFFF ||
+                     regularEOCD.offsetOfStartOfCentralDirectory == 0xFFFFFFFF
+        
+        if isZIP64 {
+            // Find ZIP64 End of Central Directory Locator
+            guard let zip64LocatorPointer = findEndOfCentralDirectorySignature(
+                in: endRecordData,
+                signature: ZIPEndRecord64Locator.signature
+            ) else {
+                throw ZIPError.centralDirectoryNotFound
+            }
+            
+            let zip64Locator = ZIPEndRecord64Locator(dataPointer: zip64LocatorPointer)
+            
+            // Read the ZIP64 End of Central Directory Record from the location specified by the locator
+            let zip64EOCDData = try await rangedData(
+                for: request,
+                bytesRange: Int64(zip64Locator.offsetOfZip64EndOfCentralDirectoryRecord) ...
+                           (Int64(zip64Locator.offsetOfZip64EndOfCentralDirectoryRecord) + ZIPEndRecord64.fixedSize + 100),
+                delegate: delegate
+            )
+            
+            let zip64EOCD = ZIPEndRecord64(dataPointer: zip64EOCDData.withUnsafeBytes { $0.bindMemory(to: UInt8.self).baseAddress! })
+            
+            return EndOfCentralDirectoryResult(endRecord: zip64EOCD, isZIP64: true)
+        } else {
+            return EndOfCentralDirectoryResult(endRecord: regularEOCD, isZIP64: false)
+        }
+    }
+    
+    func findEndOfCentralDirectorySignature(
+        in data: Data,
+        signature: [Int8]
+    ) -> UnsafeRawPointer? {
+        return data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> UnsafeRawPointer? in
+            var length = bytes.count
+            var currentPointer = bytes.bindMemory(to: UInt8.self).baseAddress!
+            var foundPointer: UnsafeRawPointer?
+            
+            // Search backwards through the data for the signature
+            while length >= signature.count {
+                if let filePointer = memchr(currentPointer, Int32(signature[0]), length) {
+                    let offset = Int(bitPattern: filePointer) - Int(bitPattern: currentPointer)
+                    
+                    if length - offset >= signature.count {
+                        let signatureMatch = signature.withUnsafeBufferPointer { (sigBytes: UnsafeBufferPointer<Int8>) -> Bool in
+                            return memcmp(sigBytes.baseAddress!, filePointer, signature.count) == 0
+                        }
+                        
+                        if signatureMatch {
+                            foundPointer = UnsafeRawPointer(filePointer)
+                            break
+                        }
+                    }
+                    
+                    let advance = offset + 1
+                    currentPointer = currentPointer.advanced(by: advance)
+                    length -= advance
+                } else {
+                    break
+                }
+            }
+            
+            return foundPointer
+        }
     }
     
     func parseCentralDirectory(
         for request: URLRequest,
         endRecord: some ZIPEndRecordType,
+        isZIP64: Bool,
         delegate: URLSessionTaskDelegate?
     ) async throws -> [ZIPEntry] {
         let directoryRecordData = try await rangedData(
@@ -176,31 +231,156 @@ private extension URLSession {
         )
         
         var length = directoryRecordData.count
-        var currentPointer = NSData(data: directoryRecordData).bytes
+        var currentPointer = directoryRecordData.withUnsafeBytes { $0.bindMemory(to: UInt8.self).baseAddress! }
         var entries = [ZIPEntry]()
         
         while length > ZIPDirectoryRecord.sizeBytes {
             let directoryRecord = ZIPDirectoryRecord(dataPointer: currentPointer)
             
+            // Parse file name
             let filePath = NSString(
                 bytes: currentPointer + ZIPDirectoryRecord.sizeBytes,
                 length: Int(directoryRecord.fileNameLength),
                 encoding: NSUTF8StringEncoding
             )
             
-            if let filePath {
+            if let filePath = filePath {
+                // Parse extra fields to get ZIP64 extended information if needed
+                var zip64Info: ZIP64ExtendedInfo? = nil
+                
+                if isZIP64 {
+                    let extraFieldStart = currentPointer + ZIPDirectoryRecord.sizeBytes + Int(directoryRecord.fileNameLength)
+                    zip64Info = parseZIP64ExtendedInfo(
+                        extraFieldData: Data(bytes: extraFieldStart, count: Int(directoryRecord.extraFieldLength)),
+                        directoryRecord: directoryRecord
+                    )
+                }
+                
                 let entry = ZIPEntry(
                     filePath: String(filePath),
                     directoryRecord: directoryRecord,
-                    isZIP64: endRecord is ZIPEndRecord64
+                    isZIP64: isZIP64,
+                    zip64Info: zip64Info
                 )
                 entries.append(entry)
             }
             
             length -= directoryRecord.totalLength
-            currentPointer += directoryRecord.totalLength
+            currentPointer = currentPointer.advanced(by: directoryRecord.totalLength)
         }
         
         return entries
+    }
+    
+    func parseZIP64ExtendedInfo(
+        extraFieldData: Data,
+        directoryRecord: ZIPDirectoryRecord
+    ) -> ZIP64ExtendedInfo? {
+        guard extraFieldData.count >= 4 else { return nil }
+        
+        return extraFieldData.withUnsafeBytes { bytes in
+            var offset = 0
+            let basePointer = bytes.bindMemory(to: UInt8.self).baseAddress!
+            
+            while offset + 4 <= bytes.count {
+                let headerID = UInt16(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt16.self, capacity: 1) { $0.pointee })
+                let dataSize = UInt16(littleEndian: basePointer.advanced(by: offset + 2).withMemoryRebound(to: UInt16.self, capacity: 1) { $0.pointee })
+                
+                if headerID == 0x0001 { // ZIP64 Extended Information Extra Field
+                    return parseZIP64ExtendedInfoField(
+                        data: Data(bytes: basePointer.advanced(by: offset + 4), count: Int(dataSize)),
+                        directoryRecord: directoryRecord
+                    )
+                }
+                
+                offset += 4 + Int(dataSize)
+            }
+            
+            return nil
+        }
+    }
+    
+    func parseZIP64ExtendedInfoField(
+        data: Data,
+        directoryRecord: ZIPDirectoryRecord
+    ) -> ZIP64ExtendedInfo {
+        var info = ZIP64ExtendedInfo()
+        
+        data.withUnsafeBytes { bytes in
+            var offset = 0
+            let basePointer = bytes.bindMemory(to: UInt8.self).baseAddress!
+            
+            // Parse fields in the order they appear, only if the corresponding 32-bit field is 0xFFFFFFFF
+            if directoryRecord.uncompressedSize == 0xFFFFFFFF && offset + 8 <= data.count {
+                info.uncompressedSize = UInt64(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt64.self, capacity: 1) { $0.pointee })
+                offset += 8
+            }
+            
+            if directoryRecord.compressedSize == 0xFFFFFFFF && offset + 8 <= data.count {
+                info.compressedSize = UInt64(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt64.self, capacity: 1) { $0.pointee })
+                offset += 8
+            }
+            
+            if directoryRecord.relativeOffsetOfLocalFileHeader == 0xFFFFFFFF && offset + 8 <= data.count {
+                info.relativeOffsetOfLocalFileHeader = UInt64(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt64.self, capacity: 1) { $0.pointee })
+                offset += 8
+            }
+            
+            if directoryRecord.diskNumberWhereFileStarts == 0xFFFF && offset + 4 <= data.count {
+                info.diskNumberWhereFileStarts = UInt32(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt32.self, capacity: 1) { $0.pointee })
+                offset += 4
+            }
+        }
+        
+        return info
+    }
+}
+
+struct ZIP64ExtendedInfo: Codable, Hashable {
+    enum CodingKeys: CodingKey {
+        case uncompressedSize
+        case compressedSize
+        case relativeOffsetOfLocalFileHeader
+        case diskNumberWhereFileStarts
+    }
+    
+    var uncompressedSize: UInt64?
+    var compressedSize: UInt64?
+    var relativeOffsetOfLocalFileHeader: UInt64?
+    var diskNumberWhereFileStarts: UInt32?
+    
+    init() {}
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        uncompressedSize = try container.decodeIfPresent(UInt64.self, forKey: .uncompressedSize)
+        compressedSize = try container.decodeIfPresent(UInt64.self, forKey: .compressedSize)
+        relativeOffsetOfLocalFileHeader = try container.decodeIfPresent(UInt64.self, forKey: .relativeOffsetOfLocalFileHeader)
+        diskNumberWhereFileStarts = try container.decodeIfPresent(UInt32.self, forKey: .diskNumberWhereFileStarts)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(uncompressedSize, forKey: .uncompressedSize)
+        try container.encodeIfPresent(compressedSize, forKey: .compressedSize)
+        try container.encodeIfPresent(relativeOffsetOfLocalFileHeader, forKey: .relativeOffsetOfLocalFileHeader)
+        try container.encodeIfPresent(diskNumberWhereFileStarts, forKey: .diskNumberWhereFileStarts)
+    }
+}
+
+struct ZIPEndRecord64Locator {
+    static let signature: [Int8] = [0x50, 0x4b, 0x07, 0x06]
+    
+    let zip64EndOfCentralDirLocatorSignature: UInt32
+    let numberOfDiskWithStartOfZip64EndOfCentralDir: UInt32
+    let offsetOfZip64EndOfCentralDirectoryRecord: UInt64
+    let totalNumberOfDisks: UInt32
+    
+    init(dataPointer: UnsafeRawPointer) {
+        var extractor = BinaryExtractor(dataPointer: dataPointer)
+        zip64EndOfCentralDirLocatorSignature = extractor.next(of: UInt32.self)
+        numberOfDiskWithStartOfZip64EndOfCentralDir = extractor.next(of: UInt32.self)
+        offsetOfZip64EndOfCentralDirectoryRecord = extractor.next(of: UInt64.self)
+        totalNumberOfDisks = extractor.next(of: UInt32.self)
     }
 }

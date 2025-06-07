@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -14,6 +14,7 @@
 		CA451E8B2AC38C7500E7C6E8 /* ImagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA451E8A2AC38C7500E7C6E8 /* ImagesView.swift */; };
 		CA451E8E2AC38D9600E7C6E8 /* ZipPinch in Frameworks */ = {isa = PBXBuildFile; productRef = CA451E8D2AC38D9600E7C6E8 /* ZipPinch */; };
 		CA451E902AC3930400E7C6E8 /* ImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA451E8F2AC3930400E7C6E8 /* ImageView.swift */; };
+		ED7807182DF43CFA00DE4968 /* ZipPinch in Frameworks */ = {isa = PBXBuildFile; productRef = ED7807172DF43CFA00DE4968 /* ZipPinch */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,7 +24,6 @@
 		CA451E7B2AC34F1700E7C6E8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CA451E7D2AC34F1700E7C6E8 /* Hubble.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Hubble.entitlements; sourceTree = "<group>"; };
 		CA451E7F2AC34F1700E7C6E8 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
-		CA451E872AC34F4B00E7C6E8 /* ZipPinch */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = ZipPinch; path = ..; sourceTree = "<group>"; };
 		CA451E8A2AC38C7500E7C6E8 /* ImagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesView.swift; sourceTree = "<group>"; };
 		CA451E8F2AC3930400E7C6E8 /* ImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -34,6 +34,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CA451E8E2AC38D9600E7C6E8 /* ZipPinch in Frameworks */,
+				ED7807182DF43CFA00DE4968 /* ZipPinch in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -43,7 +44,6 @@
 		CA451E6B2AC34F1600E7C6E8 = {
 			isa = PBXGroup;
 			children = (
-				CA451E862AC34F4B00E7C6E8 /* Packages */,
 				CA451E762AC34F1600E7C6E8 /* Hubble */,
 				CA451E752AC34F1600E7C6E8 /* Products */,
 				CA451E8C2AC38D9600E7C6E8 /* Frameworks */,
@@ -80,14 +80,6 @@
 			path = "Preview Content";
 			sourceTree = "<group>";
 		};
-		CA451E862AC34F4B00E7C6E8 /* Packages */ = {
-			isa = PBXGroup;
-			children = (
-				CA451E872AC34F4B00E7C6E8 /* ZipPinch */,
-			);
-			name = Packages;
-			sourceTree = "<group>";
-		};
 		CA451E8C2AC38D9600E7C6E8 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -113,6 +105,7 @@
 			name = Hubble;
 			packageProductDependencies = (
 				CA451E8D2AC38D9600E7C6E8 /* ZipPinch */,
+				ED7807172DF43CFA00DE4968 /* ZipPinch */,
 			);
 			productName = Hubble;
 			productReference = CA451E742AC34F1600E7C6E8 /* Hubble.app */;
@@ -142,6 +135,9 @@
 				Base,
 			);
 			mainGroup = CA451E6B2AC34F1600E7C6E8;
+			packageReferences = (
+				ED7807162DF43CFA00DE4968 /* XCLocalSwiftPackageReference "../../ZipPinch" */,
+			);
 			productRefGroup = CA451E752AC34F1600E7C6E8 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -384,8 +380,19 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		ED7807162DF43CFA00DE4968 /* XCLocalSwiftPackageReference "../../ZipPinch" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../ZipPinch;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		CA451E8D2AC38D9600E7C6E8 /* ZipPinch */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ZipPinch;
+		};
+		ED7807172DF43CFA00DE4968 /* ZipPinch */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ZipPinch;
 		};
