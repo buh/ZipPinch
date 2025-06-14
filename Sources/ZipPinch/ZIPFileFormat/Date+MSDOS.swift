@@ -21,6 +21,9 @@
 // SOFTWARE.
 
 import Foundation
+import OSLog
+
+private let logger = Logger(subsystem: "ZipPinch", category: "Date+MSDOS")
 
 extension Date {
     static func msDOS(date: UInt16, time: UInt16) -> Date {
@@ -31,7 +34,11 @@ extension Date {
         let minutes = (time >> 5) & 0x3f
         let seconds = (time & 0x1f) * 2
         let string = "\(day)/\(month)/\(year) \(hours):\(minutes):\(seconds)"
-        return DateFormatter.msDOS.date(from: string) ?? .msDOSReferenceDate
+        let parsedDate = DateFormatter.msDOS.date(from: string)
+        if parsedDate == nil {
+            logger.warning("Failed to parse MS-DOS date string: \(string), using reference date")
+        }
+        return parsedDate ?? .msDOSReferenceDate
     }
     
     static let msDOSReferenceDate = Date(timeIntervalSince1970: 315_964_800)

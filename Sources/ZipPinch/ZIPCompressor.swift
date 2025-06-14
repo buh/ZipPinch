@@ -21,10 +21,27 @@
 // SOFTWARE.
 
 import Foundation
+import OSLog
+
+fileprivate let logger = Logger(subsystem: "ZipPinch", category: "ZIPDecompressor")
 
 /// Decompressor.
 public enum ZIPDecompressor {
-    public static var decompress: @Sendable (_ compressedData: NSData) throws -> NSData = {
-        try $0.decompressed(using: .zlib)
+    public static var decompress: @Sendable (_ compressedData: NSData) throws -> NSData = { compressedData in
+        logger.debug("🗜️ Decompressing \(compressedData.length) bytes using zlib")
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
+        do {
+            let decompressedData = try compressedData.decompressed(using: .zlib)
+            let duration = CFAbsoluteTimeGetCurrent() - startTime
+            let compressionRatio = Double(decompressedData.length) / Double(compressedData.length)
+            let throughput = Double(decompressedData.length) / duration / 1024 / 1024 // MB/s
+            
+            logger.debug("✅ Decompression completed: \(compressedData.length) -> \(decompressedData.length) bytes (\(String(format: "%.1fx", compressionRatio)) ratio, \(String(format: "%.1f", throughput)) MB/s)")
+            return decompressedData
+        } catch {
+            logger.error("❌ Decompression failed: \(error.localizedDescription)")
+            throw error
+        }
     }
 }

@@ -21,6 +21,9 @@
 // SOFTWARE.
 
 import Foundation
+import OSLog
+
+fileprivate let logger = Logger(subsystem: "ZipPinch", category: "ZipRange")
 
 extension URLSession {
     /// Retrieves a part of the contents of a URL and delivers the data asynchronously.
@@ -29,11 +32,22 @@ extension URLSession {
         bytesRange: ClosedRange<Int64>,
         delegate: URLSessionTaskDelegate?
     ) async throws -> Data {
+        let rangeSize = bytesRange.upperBound - bytesRange.lowerBound + 1
+        logger.debug("📡 Range request: bytes=\(bytesRange.lowerBound)-\(bytesRange.upperBound) (\(ByteCountFormatter().string(fromByteCount: rangeSize)))")
+        
         var request = request
         request.httpMethod = "GET"
         request.addValue("bytes=\(bytesRange.lowerBound)-\(bytesRange.upperBound)", forHTTPHeaderField: "Range")
+        
+        let startTime = CFAbsoluteTimeGetCurrent()
         let (data, response) = try await data(for: request, delegate: delegate)
+        let duration = CFAbsoluteTimeGetCurrent() - startTime
+        
         try response.checkStatusCodeOK()
+        
+        let throughput = Double(data.count) / duration / 1024 / 1024 // MB/s
+        logger.debug("✅ Range request completed: \(ByteCountFormatter().string(fromByteCount: Int64(data.count))) in \(String(format: "%.2f", duration))s (\(String(format: "%.1f", throughput)) MB/s)")
+        
         return data
     }
     
@@ -54,6 +68,7 @@ extension URLResponse {
     func checkStatusCodeOK() throws {
         let httpStatusCode = (self as? HTTPURLResponse)?.statusCode ?? 0
         guard 200..<300 ~= httpStatusCode || httpStatusCode == 304 else {
+            logger.error("Bad response status code: \(httpStatusCode)")
             throw ZIPError.badResponseStatusCode(httpStatusCode)
         }
     }
@@ -80,6 +95,8 @@ public enum ZIPError: Error, Equatable {
     case receivedFileDataSizeSmall
     /// The requested entry file data is a directory.
     case entryIsDirectory
+    /// ZIP64 extended information is corrupted or invalid.
+    case zip64ExtendedInfoCorrupted
     
     public var localizedDescription: String {
         switch self {
@@ -100,6 +117,8 @@ public enum ZIPError: Error, Equatable {
             return "The received file data size is too small."
         case .entryIsDirectory:
             return "The requested entry file data is a directory."
+        case .zip64ExtendedInfoCorrupted:
+            return "ZIP64 extended information is corrupted or contains invalid values."
         }
     }
 }

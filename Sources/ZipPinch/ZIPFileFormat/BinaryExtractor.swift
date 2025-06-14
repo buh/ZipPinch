@@ -21,6 +21,9 @@
 // SOFTWARE.
 
 import Foundation
+import OSLog
+
+private let logger = Logger(subsystem: "ZipPinch", category: "BinaryExtractor")
 
 struct BinaryExtractor {
     let dataPointer: UnsafeRawPointer
@@ -28,9 +31,11 @@ struct BinaryExtractor {
     
     mutating func next<T: FixedWidthInteger>(of: T.Type) -> T {
         let size = MemoryLayout<T>.size
+        let currentOffset = pointerOffset
         var value: T = 0
         memcpy(&value, dataPointer.advanced(by: pointerOffset), size)
         pointerOffset += size
+        logger.debug("Extracted \(size) bytes at offset \(currentOffset)")
         return value
     }
 }

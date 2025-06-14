@@ -21,6 +21,9 @@
 // SOFTWARE.
 
 import Foundation
+import OSLog
+
+fileprivate let logger = Logger(subsystem: "ZipPinch", category: "ZipFolder")
 
 public extension URLSession {
     /// Retrieves the contents of the ZIP folder.
@@ -31,7 +34,8 @@ public extension URLSession {
         delegate: URLSessionTaskDelegate? = nil,
         progress: ZIPProgress? = nil
     ) async throws -> [(entry: ZIPEntry, data: Data)] {
-        try await zipFolderData(
+        logger.info("📁 Extracting ZIP folder: \(folder.name) with \(folder.allEntries().count) entries")
+        return try await zipFolderData(
             folder,
             for: URLRequest(url: url, cachePolicy: cachePolicy),
             delegate: delegate,
@@ -62,7 +66,8 @@ public extension URLSession {
         delegate: URLSessionTaskDelegate? = nil,
         progress: ZIPProgress? = nil
     ) async throws -> [(entry: ZIPEntry, data: Data)] {
-        try await zipEntriesData(
+        logger.info("📁 Extracting \(entries.count) ZIP entries via concurrent range requests")
+        return try await zipEntriesData(
             entries,
             for: URLRequest(url: url, cachePolicy: cachePolicy),
             delegate: delegate,
@@ -102,9 +107,11 @@ public extension URLSession {
                 }
             }
             
-            return try await taskGroup.reduce(into: [(entry: ZIPEntry, data: Data)]()) { partialResult, value in
+            let results = try await taskGroup.reduce(into: [(entry: ZIPEntry, data: Data)]()) { partialResult, value in
                 partialResult.append(value)
             }
+            logger.info("✅ Successfully extracted \(results.count) entries concurrently")
+            return results
         }
     }
 }

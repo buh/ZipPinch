@@ -21,6 +21,9 @@
 // SOFTWARE.
 
 import Foundation
+import OSLog
+
+private let logger = Logger(subsystem: "ZipPinch", category: "ZIPFolder")
 
 public struct ZIPFolder: Identifiable, Hashable, Equatable {
     public static let empty = ZIPFolder(name: "")
@@ -41,6 +44,7 @@ public struct ZIPFolder: Identifiable, Hashable, Equatable {
 
 public extension [ZIPEntry] {
     func rootFolder() -> ZIPFolder {
+        logger.debug("Creating root folder from \(self.count) entries")
         var rootFolder = ZIPFolder(name: "/")
         
         for entry in self where !entry.filePath.hasSuffix("/") {
@@ -59,6 +63,7 @@ public extension [ZIPEntry] {
                 } else {
                     let newFolder = ZIPFolder(name: component)
                     indices.append(rootFolder.subfolders.appendFolder(newFolder, at: indices))
+                    logger.debug("Created new folder: \(component)")
                 }
             }
             
@@ -68,6 +73,7 @@ public extension [ZIPEntry] {
         rootFolder.calcSize(isCompressedSize: true)
         rootFolder.calcSize(isCompressedSize: false)
         rootFolder.findLastModificationDate()
+        logger.debug("Root folder created with \(rootFolder.subfolders.count) subfolders and \(rootFolder.entries.count) files")
         return rootFolder
     }
 }
