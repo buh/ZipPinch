@@ -104,16 +104,6 @@ struct ImageView: View {
     }
 }
 
-extension ByteCountFormatter {
-    static let appFormatter: ByteCountFormatter = {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = .useAll
-        formatter.countStyle = .file
-        formatter.includesUnit = true
-        formatter.isAdaptive = true
-        return formatter
-    }()
-}
 
 #Preview {
     ImageView(entry: nil, url: nil)

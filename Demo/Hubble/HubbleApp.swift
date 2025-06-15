@@ -9,10 +9,7 @@ struct HubbleApp: App {
                     .ignoresSafeArea()
                 ContentView()
             }
-            .colorScheme(.dark)
+            .preferredColorScheme(.dark)
         }
-        #if os(macOS)
-        .defaultSize(width: 800, height: 800)
-        #endif
     }
 }

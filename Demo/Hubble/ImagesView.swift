@@ -40,6 +40,9 @@ struct ImagesView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         #endif
+        .navigationDestination(for: ZIPFolder.self) { folder in
+            ImagesView(title: folder.name, url: url, rootFolder: folder)
+        }
         .task { @MainActor in
             guard entries.isEmpty, rootFolder == .empty else { return }
             await loadEntries()
@@ -67,9 +70,7 @@ struct ImagesView: View {
     
     @ViewBuilder
     private func folderLink(folder: ZIPFolder) -> some View {
-        NavigationLink {
-            ImagesView(title: folder.name, url: url, rootFolder: folder)
-        } label: {
+        NavigationLink(value: folder) {
             ZStack(alignment: .bottom) {
                 HStack(spacing: 16) {
                     Image(systemName: "folder")
@@ -153,9 +154,7 @@ struct ImagesView: View {
     
     @ViewBuilder
     private func imageLink(entry: ZIPEntry) -> some View {
-        NavigationLink {
-            ImageView(entry: entry, url: url)
-        } label: {
+        NavigationLink(value: entry) {
             HStack(spacing: 16) {
                 Image(systemName: "photo")
                 
