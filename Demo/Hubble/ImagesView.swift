@@ -247,13 +247,15 @@ private extension [ZIPEntry] {
     }
 }
 
-struct ImagesView_Previews: PreviewProvider {
-    static var previews: some View {
-        NavigationStack {
-            ImagesView(
-                title: "Top 100",
-                url: URL(string: "https://esahubble.org/static/images/zip/top100/top100-large.zip")!
-            )
-        }
+#Preview {
+    NavigationStack {
+        ImagesView(
+            title: "Top 100",
+            url: URL(string: "https://esahubble.org/static/images/zip/top100/top100-large.zip")!
+        )
     }
+    .preferredColorScheme(.dark)
+    #if os(macOS)
+    .frame(width: 800, height: 800)
+    #endif
 }

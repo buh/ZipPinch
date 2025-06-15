@@ -115,8 +115,10 @@ extension ByteCountFormatter {
     }()
 }
 
-struct ImageView_Previews: PreviewProvider {
-    static var previews: some View {
-        ImageView(entry: nil, url: nil)
-    }
+#Preview {
+    ImageView(entry: nil, url: nil)
+        .preferredColorScheme(.dark)
+        #if os(macOS)
+        .frame(width: 800, height: 800)
+        #endif
 }

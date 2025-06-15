@@ -118,8 +118,10 @@ struct ContentView: View {
     }
 }
 
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-    }
+#Preview {
+    ContentView()
+        .preferredColorScheme(.dark)
+        #if os(macOS)
+        .frame(width: 800, height: 800)
+        #endif
 }
