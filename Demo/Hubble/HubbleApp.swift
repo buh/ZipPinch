@@ -6,8 +6,13 @@ struct HubbleApp: App {
         WindowGroup {
             ZStack {
                 Color.black
+                    .ignoresSafeArea()
                 ContentView()
             }
+            .colorScheme(.dark)
         }
+        #if os(macOS)
+        .defaultSize(width: 800, height: 800)
+        #endif
     }
 }

@@ -12,43 +12,9 @@ struct ContentView: View {
             ZStack {
                 stars()
                 
-                VStack(spacing: 20) {
-                    Label("Hubble", systemImage: "bubbles.and.sparkles.fill")
-                        .font(.largeTitle.bold())
-                        .foregroundColor(.accentColor)
-                        .shadow(color: Color.accentColor, radius: 20)
-                        .padding(.bottom)
-                    
-                    imagesLink(
-                        title: "Top 100 large images",
-                        subtitle: "ZIP file 1.2 GB",
-                        url: URL(string: "https://esahubble.org/static/images/zip/top100/top100-large.zip")!
-                    )
-                    
-                    imagesLink(
-                        title: "Top 100 original images",
-                        subtitle: "ZIP file 4.7 GB",
-                        url: URL(string: "https://esahubble.org/static/images/zip/top100/top100-original.zip")!
-                    )
-                    
-                    Divider()
-                    
-                    if let customURL {
-                        imagesLink(
-                            title: customURL.lastPathComponent,
-                            subtitle: customURL.host() ?? "",
-                            url: customURL
-                        )
-                    }
-                    
-                    Button("Try your ZIP-file URL") {
-                        customURLString = ""
-                        showCustomURLTextField = true
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .buttonStyle(.bordered)
-                .padding(.bottom, 64)
+                menuView()
+                    .buttonStyle(.bordered)
+                    .padding(.bottom, 64)
             }
         }
         .task {
@@ -72,7 +38,44 @@ struct ContentView: View {
         }
     }
     
-    @ViewBuilder
+    private func menuView() -> some View {
+        VStack(spacing: 20) {
+            Label("Hubble", systemImage: "bubbles.and.sparkles.fill")
+                .font(.largeTitle.bold())
+                .foregroundColor(.accentColor)
+                .shadow(color: Color.accentColor, radius: 20)
+                .padding(.bottom)
+            
+            imagesLink(
+                title: "Top 100 large images",
+                subtitle: "ZIP file 1.2 GB",
+                url: URL(string: "https://esahubble.org/static/images/zip/top100/top100-large.zip")!
+            )
+            
+            imagesLink(
+                title: "Top 100 original images",
+                subtitle: "ZIP file 4.7 GB",
+                url: URL(string: "https://esahubble.org/static/images/zip/top100/top100-original.zip")!
+            )
+            
+            Divider()
+            
+            if let customURL {
+                imagesLink(
+                    title: customURL.lastPathComponent,
+                    subtitle: customURL.host() ?? "",
+                    url: customURL
+                )
+            }
+            
+            Button("Try your ZIP-file URL") {
+                customURLString = ""
+                showCustomURLTextField = true
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+    
     private func imagesLink(title: String, subtitle: String, url: URL) -> some View {
         NavigationLink(destination: ImagesView(title: title, url: url)) {
             VStack(spacing: 4) {
