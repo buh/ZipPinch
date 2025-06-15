@@ -159,13 +159,13 @@ private extension URLSession {
     ) async throws -> EndOfCentralDirectoryResult {
         logger.debug("🔎 Using range request to search for End of Central Directory Record")
         
-        // Correct logic: Larger files need larger search windows for ZIP64 structures
+        // Start with smaller search windows to avoid URLSession issues with large range requests
         let searchSize: Int64
         if contentLength >= 8_000_000_000 { // 8GB+ files (very large ZIP64)
-            searchSize = min(contentLength, 131072) // 128KB for very large ZIP64 files
+            searchSize = min(contentLength, 131072) // 128KB for very large ZIP64 files (reduced from 512KB)
             logger.info("🔍 Very large ZIP64 file (\(ByteCountFormatter().string(fromByteCount: contentLength))) - using 128KB search window")
         } else if contentLength >= 4_000_000_000 { // 4GB+ files (large ZIP64)
-            searchSize = min(contentLength, 65536) // 64KB for large ZIP64 files
+            searchSize = min(contentLength, 65536) // 64KB for large ZIP64 files (reduced from 256KB)
             logger.info("🔍 Large ZIP64 file (\(ByteCountFormatter().string(fromByteCount: contentLength))) - using 64KB search window")
         } else { // Normal files <4GB
             searchSize = min(contentLength, 32768) // 32KB for normal files
@@ -184,11 +184,20 @@ private extension URLSession {
         )
         
         // Find the regular End of Central Directory Record first
+        logger.debug("🔍 Searching for regular EOCD signature in \(endRecordData.count) bytes")
         guard let regularEOCDPointer = findEndOfCentralDirectorySignature(
             in: endRecordData,
             signature: ZIPEndRecord.signature
         ) else {
             logger.error("❌ Could not find ZIP End of Central Directory signature in range")
+            logger.error("🔍 Downloaded \(endRecordData.count) bytes from offset \(rangeStart)")
+            logger.error("🔍 Expected signature: \(ZIPEndRecord.signature.map { String(format: "%02x", $0) }.joined(separator: " "))")
+            
+            // Debug: Show last 100 bytes of downloaded data
+            let debugBytes = endRecordData.suffix(100)
+            let hexString = debugBytes.map { String(format: "%02x", $0) }.joined(separator: " ")
+            logger.error("🔍 Last 100 bytes: \(hexString)")
+            
             throw ZIPError.centralDirectoryNotFound
         }
         
@@ -206,11 +215,57 @@ private extension URLSession {
         if isZIP64 {
             logger.info("🔍 ZIP64 markers detected, searching for ZIP64 End of Central Directory")
             
-            // Find ZIP64 End of Central Directory Locator in the same buffer
-            guard let zip64LocatorPointer = findEndOfCentralDirectorySignature(
+            // For ZIP64, the locator might be before the regular EOCD in a larger search window
+            var zip64LocatorPointer = findEndOfCentralDirectorySignature(
                 in: endRecordData,
                 signature: ZIPEndRecord64Locator.signature
-            ) else {
+            )
+            
+            // If not found in current buffer, try a larger search for ZIP64 files
+            if zip64LocatorPointer == nil {
+                logger.debug("🔍 ZIP64 locator not found in current buffer, expanding search window")
+                
+                // For very large ZIP64 files, the locator might be much further back
+                let expandedSearchSize = min(contentLength, 512_000) // 512KB for ZIP64 locator search
+                let expandedRangeStart = contentLength - expandedSearchSize
+                let expandedRangeEnd = contentLength - 1
+                
+                logger.debug("📡 Expanded ZIP64 search: bytes=\(expandedRangeStart)-\(expandedRangeEnd) (\(ByteCountFormatter().string(fromByteCount: expandedSearchSize)))")
+                
+                let expandedData = try await rangedData(
+                    for: request,
+                    bytesRange: expandedRangeStart ... expandedRangeEnd,
+                    delegate: delegate
+                )
+                
+                zip64LocatorPointer = findEndOfCentralDirectorySignature(
+                    in: expandedData,
+                    signature: ZIPEndRecord64Locator.signature
+                )
+                
+                // Also search for ZIP64 End of Central Directory directly if locator not found
+                if zip64LocatorPointer == nil {
+                    logger.debug("🔍 ZIP64 locator still not found, searching for ZIP64 EOCD directly")
+                    if let zip64EOCDPointer = findEndOfCentralDirectorySignature(
+                        in: expandedData,
+                        signature: ZIPEndRecord64.signature
+                    ) {
+                        logger.debug("✅ Found ZIP64 EOCD directly, creating synthetic result")
+                        
+                        // Create aligned data buffer for ZIP64 EOCD
+                        let zip64DataSize = Int(ZIPEndRecord64.fixedSize)
+                        let alignedData = Data(bytes: zip64EOCDPointer, count: zip64DataSize)
+                        
+                        let zip64EOCD = alignedData.withUnsafeBytes { bytes in
+                            ZIPEndRecord64(dataPointer: bytes.bindMemory(to: UInt8.self).baseAddress!)
+                        }
+                        
+                        return EndOfCentralDirectoryResult(endRecord: zip64EOCD, isZIP64: true)
+                    }
+                }
+            }
+            
+            guard let zip64LocatorPointer = zip64LocatorPointer else {
                 logger.error("❌ ZIP64 EOCD Locator not found despite ZIP64 markers")
                 throw ZIPError.centralDirectoryNotFound
             }
@@ -220,8 +275,22 @@ private extension URLSession {
             
             // CRITICAL: For ZIP64, read the actual ZIP64 End of Central Directory Record
             // This contains the real directory information, not the stub regular EOCD
+            
+            // Validate ZIP64 offset to prevent integer overflow
+            guard zip64Locator.offsetOfZip64EndOfCentralDirectoryRecord <= UInt64(Int64.max) else {
+                logger.error("❌ ZIP64 offset too large: \(zip64Locator.offsetOfZip64EndOfCentralDirectoryRecord) > Int64.max")
+                throw ZIPError.zip64ExtendedInfoCorrupted
+            }
+            
             let zip64RangeStart = Int64(zip64Locator.offsetOfZip64EndOfCentralDirectoryRecord)
             let zip64RangeEnd = zip64RangeStart + ZIPEndRecord64.fixedSize + 200 // Extra buffer for extensions
+            
+            // Validate range bounds
+            guard zip64RangeStart >= 0 && zip64RangeEnd >= zip64RangeStart else {
+                logger.error("❌ Invalid ZIP64 range: \(zip64RangeStart)...\(zip64RangeEnd)")
+                throw ZIPError.zip64ExtendedInfoCorrupted
+            }
+            
             logger.debug("📡 ZIP64 EOCD range request: bytes=\(zip64RangeStart)-\(zip64RangeEnd)")
             
             let zip64EOCDData = try await rangedData(
@@ -248,36 +317,29 @@ private extension URLSession {
         signature: [Int8]
     ) -> UnsafeRawPointer? {
         let startTime = CFAbsoluteTimeGetCurrent()
+        let signatureHex = signature.map { String(format: "%02x", UInt8(bitPattern: $0)) }.joined(separator: " ")
+        logger.debug("🔍 Searching for signature: \(signatureHex) in \(data.count) bytes")
         
         let result = data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> UnsafeRawPointer? in
-            var length = bytes.count
-            var currentPointer = bytes.bindMemory(to: UInt8.self).baseAddress!
-            var foundPointer: UnsafeRawPointer?
+            let basePointer = bytes.bindMemory(to: UInt8.self).baseAddress!
+            let dataSize = bytes.count
             
-            while length >= signature.count {
-                if let filePointer = memchr(currentPointer, Int32(signature[0]), length) {
-                    let offset = Int(bitPattern: filePointer) - Int(bitPattern: currentPointer)
-                    
-                    if length - offset >= signature.count {
-                        let signatureMatch = signature.withUnsafeBufferPointer { (sigBytes: UnsafeBufferPointer<Int8>) -> Bool in
-                            return memcmp(sigBytes.baseAddress!, filePointer, signature.count) == 0
-                        }
-                        
-                        if signatureMatch {
-                            foundPointer = UnsafeRawPointer(filePointer)
-                            break
-                        }
-                    }
-                    
-                    let advance = offset + 1
-                    currentPointer = currentPointer.advanced(by: advance)
-                    length -= advance
-                } else {
-                    break
+            // Search backwards from the end of the data (ZIP structures are at the end)
+            for i in stride(from: dataSize - signature.count, through: 0, by: -1) {
+                let currentPointer = basePointer.advanced(by: i)
+                
+                let signatureMatch = signature.withUnsafeBufferPointer { (sigBytes: UnsafeBufferPointer<Int8>) -> Bool in
+                    return memcmp(sigBytes.baseAddress!, currentPointer, signature.count) == 0
+                }
+                
+                if signatureMatch {
+                    logger.debug("✅ Found signature at offset \(i) from start of buffer")
+                    return UnsafeRawPointer(currentPointer)
                 }
             }
             
-            return foundPointer
+            logger.debug("❌ Signature not found in \(dataSize) bytes")
+            return nil
         }
         
         let duration = CFAbsoluteTimeGetCurrent() - startTime
@@ -386,8 +448,12 @@ private extension URLSession {
             let basePointer = bytes.bindMemory(to: UInt8.self).baseAddress!
             
             while offset + 4 <= bytes.count {
-                let headerID = UInt16(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt16.self, capacity: 1) { $0.pointee })
-                let dataSize = UInt16(littleEndian: basePointer.advanced(by: offset + 2).withMemoryRebound(to: UInt16.self, capacity: 1) { $0.pointee })
+                var headerID: UInt16 = 0
+                var dataSize: UInt16 = 0
+                memcpy(&headerID, basePointer.advanced(by: offset), MemoryLayout<UInt16>.size)
+                memcpy(&dataSize, basePointer.advanced(by: offset + 2), MemoryLayout<UInt16>.size)
+                headerID = UInt16(littleEndian: headerID)
+                dataSize = UInt16(littleEndian: dataSize)
                 
                 if headerID == 0x0001 { // ZIP64 Extended Information Extra Field
                     logger.debug("📋 Found ZIP64 Extended Info field, size: \(dataSize) bytes")
@@ -427,7 +493,9 @@ private extension URLSession {
                     logger.warning("⚠️ Missing ZIP64 uncompressedSize field")
                     return
                 }
-                info.uncompressedSize = UInt64(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt64.self, capacity: 1) { $0.pointee })
+                var uncompressedSize: UInt64 = 0
+                memcpy(&uncompressedSize, basePointer.advanced(by: offset), MemoryLayout<UInt64>.size)
+                info.uncompressedSize = UInt64(littleEndian: uncompressedSize)
                 logger.debug("📏 ZIP64 uncompressed size: \(info.uncompressedSize!) bytes")
                 offset += 8
             }
@@ -437,7 +505,9 @@ private extension URLSession {
                     logger.warning("⚠️ Missing ZIP64 compressedSize field")
                     return
                 }
-                info.compressedSize = UInt64(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt64.self, capacity: 1) { $0.pointee })
+                var compressedSize: UInt64 = 0
+                memcpy(&compressedSize, basePointer.advanced(by: offset), MemoryLayout<UInt64>.size)
+                info.compressedSize = UInt64(littleEndian: compressedSize)
                 logger.debug("📦 ZIP64 compressed size: \(info.compressedSize!) bytes")
                 offset += 8
             }
@@ -447,7 +517,9 @@ private extension URLSession {
                     logger.warning("⚠️ Missing ZIP64 relativeOffsetOfLocalFileHeader field")
                     return
                 }
-                info.relativeOffsetOfLocalFileHeader = UInt64(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt64.self, capacity: 1) { $0.pointee })
+                var relativeOffset: UInt64 = 0
+                memcpy(&relativeOffset, basePointer.advanced(by: offset), MemoryLayout<UInt64>.size)
+                info.relativeOffsetOfLocalFileHeader = UInt64(littleEndian: relativeOffset)
                 logger.debug("📍 ZIP64 relative offset: \(info.relativeOffsetOfLocalFileHeader!)")
                 offset += 8
             }
@@ -457,7 +529,9 @@ private extension URLSession {
                     logger.warning("⚠️ Missing ZIP64 diskNumberWhereFileStarts field")
                     return
                 }
-                info.diskNumberWhereFileStarts = UInt32(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt32.self, capacity: 1) { $0.pointee })
+                var diskNumber: UInt32 = 0
+                memcpy(&diskNumber, basePointer.advanced(by: offset), MemoryLayout<UInt32>.size)
+                info.diskNumberWhereFileStarts = UInt32(littleEndian: diskNumber)
                 logger.debug("💿 ZIP64 disk number: \(info.diskNumberWhereFileStarts!)")
                 offset += 4
             }

@@ -26,6 +26,18 @@ import OSLog
 fileprivate let logger = Logger(subsystem: "ZipPinch", category: "ZipRange")
 
 extension URLSession {
+    /// Creates a URLSession configuration optimized for range requests
+    private static func createRangeRequestSession() -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 15.0
+        config.timeoutIntervalForResource = 60.0
+        config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        config.urlCache = nil
+        config.httpMaximumConnectionsPerHost = 2
+        
+        return URLSession(configuration: config)
+    }
+    
     /// Retrieves a part of the contents of a URL and delivers the data asynchronously.
     func rangedData(
         for request: URLRequest,
@@ -37,18 +49,110 @@ extension URLSession {
         
         var request = request
         request.httpMethod = "GET"
-        request.addValue("bytes=\(bytesRange.lowerBound)-\(bytesRange.upperBound)", forHTTPHeaderField: "Range")
+        request.setValue("bytes=\(bytesRange.lowerBound)-\(bytesRange.upperBound)", forHTTPHeaderField: "Range")
+        
+        // Set reasonable timeout for range requests
+        request.timeoutInterval = 10.0 // 10 seconds timeout
+        
+        // Add User-Agent and accept headers to avoid server blocking
+        request.setValue("ZipPinch/1.0 (macOS)", forHTTPHeaderField: "User-Agent")
+        request.setValue("*/*", forHTTPHeaderField: "Accept")
+        request.setValue("gzip, deflate, br", forHTTPHeaderField: "Accept-Encoding")
+        
+        logger.debug("🌐 Making range request to: \(request.url?.absoluteString ?? "unknown")")
+        logger.debug("📋 Request headers: \(request.allHTTPHeaderFields ?? [:])")
         
         let startTime = CFAbsoluteTimeGetCurrent()
-        let (data, response) = try await data(for: request, delegate: delegate)
-        let duration = CFAbsoluteTimeGetCurrent() - startTime
         
-        try response.checkStatusCodeOK()
+        // Retry logic for network issues
+        var lastError: Error?
+        let maxRetries = 3
         
-        let throughput = Double(data.count) / duration / 1024 / 1024 // MB/s
-        logger.debug("✅ Range request completed: \(ByteCountFormatter().string(fromByteCount: Int64(data.count))) in \(String(format: "%.2f", duration))s (\(String(format: "%.1f", throughput)) MB/s)")
+        for attempt in 1...maxRetries {
+            do {
+                if attempt > 1 {
+                    logger.debug("🔄 Retry attempt \(attempt)/\(maxRetries)")
+                    // Brief delay between retries
+                    try await Task.sleep(nanoseconds: UInt64(attempt * 500_000_000)) // 0.5s * attempt
+                }
+                
+                let session = Self.createRangeRequestSession()
+                logger.debug("🔧 Created URLSession with configuration")
+                
+                // Add task debugging with timeout
+                logger.debug("🚀 Starting URLSession.data(for:delegate:)")
+                let (data, response) = try await withThrowingTaskGroup(of: (Data, URLResponse).self) { group in
+                    group.addTask {
+                        try await session.data(for: request, delegate: delegate)
+                    }
+                    
+                    group.addTask {
+                        try await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
+                        throw URLError(.timedOut)
+                    }
+                    
+                    let result = try await group.next()!
+                    group.cancelAll()
+                    return result
+                }
+                logger.debug("🎯 URLSession.data completed successfully")
+                let duration = CFAbsoluteTimeGetCurrent() - startTime
+                
+                logger.debug("📥 Received response after \(String(format: "%.2f", duration))s (attempt \(attempt))")
+                logger.debug("📊 Response type: \(type(of: response))")
+                
+                if let httpResponse = response as? HTTPURLResponse {
+                    logger.debug("📋 Response status: \(httpResponse.statusCode)")
+                    logger.debug("📋 Response headers: \(httpResponse.allHeaderFields)")
+                    logger.debug("📏 Response data size: \(data.count) bytes")
+                }
+                
+                try response.checkStatusCodeOK()
+                
+                let throughput = Double(data.count) / duration / 1024 / 1024 // MB/s
+                logger.debug("✅ Range request completed: \(ByteCountFormatter().string(fromByteCount: Int64(data.count))) in \(String(format: "%.2f", duration))s (\(String(format: "%.1f", throughput)) MB/s)")
+                
+                return data
+                
+            } catch {
+                lastError = error
+                let duration = CFAbsoluteTimeGetCurrent() - startTime
+                logger.error("❌ Range request attempt \(attempt) failed after \(String(format: "%.2f", duration))s: \(error)")
+                
+                if let nsError = error as NSError? {
+                    logger.error("🔐 NSError domain: \(nsError.domain), code: \(nsError.code)")
+                    
+                    // Don't retry for certain errors
+                    switch nsError.code {
+                    case -1200, -1201, -1202: // SSL/TLS errors
+                        logger.error("🔐 SSL/TLS error - not retrying")
+                        throw error
+                    case -1001: // Timeout
+                        if attempt == maxRetries {
+                            logger.error("⏱️ Final timeout after \(maxRetries) attempts")
+                        } else {
+                            logger.debug("⏱️ Timeout - will retry")
+                        }
+                    case -1009: // No internet
+                        logger.error("🌐 No internet connection - not retrying")
+                        throw error
+                    default:
+                        logger.debug("🔄 Network error - will retry if attempts remain")
+                    }
+                }
+                
+                if attempt == maxRetries {
+                    break
+                }
+            }
+        }
         
-        return data
+        // If we get here, all retries failed
+        if let lastError = lastError {
+            throw lastError
+        } else {
+            throw ZIPError.fileDataFailedToReceive
+        }
     }
     
     /// Retrieves a part of the contents as bytes of a URL and delivers the data asynchronously.
@@ -59,7 +163,7 @@ extension URLSession {
     ) async throws -> (AsyncBytes, URLResponse) {
         var request = request
         request.httpMethod = "GET"
-        request.addValue("bytes=\(bytesRange.lowerBound)-\(bytesRange.upperBound)", forHTTPHeaderField: "Range")
+        request.setValue("bytes=\(bytesRange.lowerBound)-\(bytesRange.upperBound)", forHTTPHeaderField: "Range")
         return try await bytes(for: request, delegate: delegate)
     }
 }

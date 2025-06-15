@@ -82,8 +82,22 @@ struct ZIPEndRecord64: ZIPEndRecordType {
     let offsetOfStartOfCentralDirectory: UInt64
     
     var centerDirectoryRange: ClosedRange<Int64> {
-        Int64(offsetOfStartOfCentralDirectory)
-        ... (Int64(offsetOfStartOfCentralDirectory) + Int64(sizeOfCentralDirectory) - 1)
+        // Validate ZIP64 values to prevent integer overflow  
+        guard offsetOfStartOfCentralDirectory <= UInt64(Int64.max),
+              sizeOfCentralDirectory <= UInt64(Int64.max) else {
+            // For very large files that exceed Int64, we can't handle them with current HTTP range implementation
+            fatalError("ZIP64 file too large: offset=\(offsetOfStartOfCentralDirectory), size=\(sizeOfCentralDirectory) exceed Int64.max")
+        }
+        
+        let start = Int64(offsetOfStartOfCentralDirectory)
+        let size = Int64(sizeOfCentralDirectory)
+        
+        // Validate the range calculation won't overflow
+        guard start >= 0, size > 0, start <= Int64.max - size else {
+            fatalError("ZIP64 range calculation overflow: start=\(start), size=\(size)")
+        }
+        
+        return start ... (start + size - 1)
     }
     
     init(dataPointer: UnsafeRawPointer) {

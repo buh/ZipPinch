@@ -430,6 +430,16 @@ struct ArchiveBrowserView: View {
                     rootFolder = entries.rootFolder()
                     isLoading = false
                     print("📀 Returned cached entries: ", entries.count)
+                    
+                    // Pre-warm URLSession connection to prevent first-download delays
+                    Task {
+                        do {
+                            _ = try await urlSession.zipContentLength(from: archiveSource.url, cachePolicy: .returnCacheDataElseLoad)
+                        } catch {
+                            // Silently ignore pre-warming errors
+                        }
+                    }
+                    
                     return
                 }
             }

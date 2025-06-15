@@ -270,8 +270,12 @@ private extension URLSession {
             let basePointer = bytes.bindMemory(to: UInt8.self).baseAddress!
             
             while offset + 4 <= bytes.count {
-                let headerID = UInt16(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt16.self, capacity: 1) { $0.pointee })
-                let dataSize = UInt16(littleEndian: basePointer.advanced(by: offset + 2).withMemoryRebound(to: UInt16.self, capacity: 1) { $0.pointee })
+                var headerID: UInt16 = 0
+                var dataSize: UInt16 = 0
+                memcpy(&headerID, basePointer.advanced(by: offset), MemoryLayout<UInt16>.size)
+                memcpy(&dataSize, basePointer.advanced(by: offset + 2), MemoryLayout<UInt16>.size)
+                headerID = UInt16(littleEndian: headerID)
+                dataSize = UInt16(littleEndian: dataSize)
                 
                 if headerID == 0x0001 { // ZIP64 Extended Information Extra Field
                     return parseZIP64LocalFileExtendedInfoField(
@@ -299,12 +303,16 @@ private extension URLSession {
             
             // Parse fields in the order they appear, only if the corresponding 32-bit field is 0xFFFFFFFF
             if fileHeader.uncompressedSize == 0xFFFFFFFF && offset + 8 <= data.count {
-                info.uncompressedSize = UInt64(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt64.self, capacity: 1) { $0.pointee })
+                var uncompressedSize: UInt64 = 0
+                memcpy(&uncompressedSize, basePointer.advanced(by: offset), MemoryLayout<UInt64>.size)
+                info.uncompressedSize = UInt64(littleEndian: uncompressedSize)
                 offset += 8
             }
             
             if fileHeader.compressedSize == 0xFFFFFFFF && offset + 8 <= data.count {
-                info.compressedSize = UInt64(littleEndian: basePointer.advanced(by: offset).withMemoryRebound(to: UInt64.self, capacity: 1) { $0.pointee })
+                var compressedSize: UInt64 = 0
+                memcpy(&compressedSize, basePointer.advanced(by: offset), MemoryLayout<UInt64>.size)
+                info.compressedSize = UInt64(littleEndian: compressedSize)
                 offset += 8
             }
         }

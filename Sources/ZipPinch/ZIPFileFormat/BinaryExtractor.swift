@@ -33,9 +33,12 @@ struct BinaryExtractor {
         let size = MemoryLayout<T>.size
         let currentOffset = pointerOffset
         var value: T = 0
+        
+        // Use memcpy for unaligned access - this is safe for all pointer alignments
         memcpy(&value, dataPointer.advanced(by: pointerOffset), size)
         pointerOffset += size
-        logger.debug("Extracted \(size) bytes at offset \(currentOffset)")
-        return value
+        
+        // Convert from little-endian (ZIP format is little-endian)
+        return T(littleEndian: value)
     }
 }
