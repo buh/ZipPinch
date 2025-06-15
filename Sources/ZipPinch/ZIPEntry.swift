@@ -40,23 +40,26 @@ public struct ZIPEntry: Identifiable, Hashable, Codable {
     // Use ZIP64 values if available, otherwise fall back to 32-bit values
     public var compressedSize: Int64 {
         if let zip64CompressedSize = zip64Info?.compressedSize {
-            return Int64(zip64CompressedSize)
+            Int64(zip64CompressedSize)
+        } else {
+            Int64(directoryRecord.compressedSize)
         }
-        return Int64(directoryRecord.compressedSize)
     }
     
     public var uncompressedSize: Int64 {
         if let zip64UncompressedSize = zip64Info?.uncompressedSize {
-            return Int64(zip64UncompressedSize)
+            Int64(zip64UncompressedSize)
+        } else {
+            Int64(directoryRecord.uncompressedSize)
         }
-        return Int64(directoryRecord.uncompressedSize)
     }
     
     var relativeOffsetOfLocalFileHeader: Int64 {
         if let zip64Offset = zip64Info?.relativeOffsetOfLocalFileHeader {
-            return Int64(zip64Offset)
+            Int64(zip64Offset)
+        } else {
+            Int64(directoryRecord.relativeOffsetOfLocalFileHeader)
         }
-        return Int64(directoryRecord.relativeOffsetOfLocalFileHeader)
     }
     
     public var fileLastModificationDate: Date {

@@ -41,13 +41,14 @@ extension Date {
         return parsedDate ?? .msDOSReferenceDate
     }
     
-    static let msDOSReferenceDate = Date(timeIntervalSince1970: 315_964_800)
+    static let msDOSReferenceDate = Date(timeIntervalSince1970: 315_532_800)
 }
 
 private extension DateFormatter {
     static let msDOS : DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd/MM/yyyy HH:mm:ss"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
         return formatter
     }()
 }
